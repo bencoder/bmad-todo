@@ -61,6 +61,12 @@ env/
 .mypy_cache/
 .ruff_cache/
 
+# Database
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+
 # Build / dist / coverage
 dist/
 build/
@@ -73,6 +79,10 @@ coverage/
 .parcel-cache/
 .turbo/
 *.tsbuildinfo
+
+# Playwright
+playwright-report/
+test-results/
 
 # Logs and temp
 *.log

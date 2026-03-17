@@ -1,0 +1,409 @@
+diff --git a/frontend/.env.example b/frontend/.env.example
+new file mode 100644
+index 0000000..923ae16
+--- /dev/null
++++ b/frontend/.env.example
+@@ -0,0 +1,3 @@
++# Backend API base URL (no trailing slash). Used when not using Vite proxy.
++# Example: http://localhost:3000
++VITE_API_URL=
+diff --git a/frontend/.prettierrc b/frontend/.prettierrc
+new file mode 100644
+index 0000000..36a4660
+--- /dev/null
++++ b/frontend/.prettierrc
+@@ -0,0 +1,6 @@
++{
++  "semi": false,
++  "singleQuote": true,
++  "trailingComma": "es5",
++  "printWidth": 100
++}
+diff --git a/frontend/Dockerfile b/frontend/Dockerfile
+new file mode 100644
+index 0000000..05e812c
+--- /dev/null
++++ b/frontend/Dockerfile
+@@ -0,0 +1,16 @@
++# Frontend: Vite dev server (default) or production build with nginx
++# For local/docker-compose: runs Vite dev server.
++# For prod: use multi-stage build (build stage + nginx) in a later story.
++
++FROM node:20-alpine
++
++WORKDIR /app
++
++COPY package.json package-lock.json* ./
++RUN npm ci
++
++COPY . .
++EXPOSE 5173
++
++# Dev: run Vite dev server (host can use VITE_API_URL to point to backend)
++CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
+diff --git a/frontend/e2e/smoke.spec.ts b/frontend/e2e/smoke.spec.ts
+new file mode 100644
+index 0000000..3a0bfcf
+--- /dev/null
++++ b/frontend/e2e/smoke.spec.ts
+@@ -0,0 +1,6 @@
++import { test, expect } from '@playwright/test'
++
++test('frontend loads and shows app title', async ({ page }) => {
++  await page.goto('/')
++  await expect(page.getByRole('heading', { name: /aine-training/i })).toBeVisible()
++})
+diff --git a/frontend/eslint.config.js b/frontend/eslint.config.js
+new file mode 100644
+index 0000000..75019f9
+--- /dev/null
++++ b/frontend/eslint.config.js
+@@ -0,0 +1,25 @@
++import js from '@eslint/js'
++import globals from 'globals'
++import reactHooks from 'eslint-plugin-react-hooks'
++import reactRefresh from 'eslint-plugin-react-refresh'
++import tseslint from 'typescript-eslint'
++
++export default tseslint.config(
++  { ignores: ['dist', 'node_modules', 'playwright-report', 'test-results', '*.config.js', '*.config.ts'] },
++  {
++    extends: [js.configs.recommended, ...tseslint.configs.recommended],
++    files: ['**/*.{ts,tsx}'],
++    languageOptions: {
++      ecmaVersion: 2020,
++      globals: globals.browser,
++    },
++    plugins: {
++      'react-hooks': reactHooks,
++      'react-refresh': reactRefresh,
++    },
++    rules: {
++      ...reactHooks.configs.recommended.rules,
++      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
++    },
++  }
++)
+diff --git a/frontend/index.html b/frontend/index.html
+new file mode 100644
+index 0000000..c270ad6
+--- /dev/null
++++ b/frontend/index.html
+@@ -0,0 +1,13 @@
++<!doctype html>
++<html lang="en">
++  <head>
++    <meta charset="UTF-8" />
++    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
++    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
++    <title>aine-training</title>
++  </head>
++  <body>
++    <div id="root"></div>
++    <script type="module" src="/src/main.tsx"></script>
++  </body>
++</html>
+diff --git a/frontend/package.json b/frontend/package.json
+new file mode 100644
+index 0000000..3538ea5
+--- /dev/null
++++ b/frontend/package.json
+@@ -0,0 +1,46 @@
++{
++  "name": "aine-training-frontend",
++  "private": true,
++  "version": "0.0.0",
++  "type": "module",
++  "scripts": {
++    "dev": "vite",
++    "build": "tsc -b && vite build",
++    "preview": "vite preview",
++    "lint": "eslint . --max-warnings 0",
++    "format": "prettier --write \"src/**/*.{ts,tsx,css,json}\"",
++    "test": "vitest",
++    "test:run": "vitest run",
++    "test:e2e": "playwright test",
++    "postinstall": "playwright install chromium"
++  },
++  "dependencies": {
++    "react": "^18.3.1",
++    "react-dom": "^18.3.1"
++  },
++  "devDependencies": {
++    "@playwright/test": "^1.49.0",
++    "@types/node": "^22.9.0",
++    "@types/react": "^18.3.12",
++    "@types/react-dom": "^18.3.1",
++    "@eslint/js": "^9.15.0",
++    "@typescript-eslint/eslint-plugin": "^8.15.0",
++    "@typescript-eslint/parser": "^8.15.0",
++    "@vitejs/plugin-react": "^4.3.4",
++    "autoprefixer": "^10.4.20",
++    "eslint": "^9.15.0",
++    "globals": "^15.12.0",
++    "eslint-plugin-react-hooks": "^5.0.0",
++    "eslint-plugin-react-refresh": "^0.4.14",
++    "postcss": "^8.4.49",
++    "prettier": "^3.3.3",
++    "tailwindcss": "^3.4.15",
++    "typescript": "~5.6.3",
++    "typescript-eslint": "^8.15.0",
++    "vite": "^5.4.10",
++    "vitest": "^2.1.4",
++    "jsdom": "^25.0.1",
++    "@testing-library/react": "^16.0.1",
++    "@testing-library/jest-dom": "^6.6.3"
++  }
++}
+diff --git a/frontend/playwright.config.ts b/frontend/playwright.config.ts
+new file mode 100644
+index 0000000..f75e87c
+--- /dev/null
++++ b/frontend/playwright.config.ts
+@@ -0,0 +1,25 @@
++import { defineConfig, devices } from '@playwright/test'
++
++export default defineConfig({
++  testDir: './e2e',
++  fullyParallel: true,
++  forbidOnly: !!process.env.CI,
++  retries: process.env.CI ? 2 : 0,
++  workers: process.env.CI ? 1 : undefined,
++  reporter: 'html',
++  use: {
++    baseURL: 'http://localhost:5173',
++    trace: 'on-first-retry',
++  },
++  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
++  // When SKIP_WEB_SERVER=1 (e.g. app already running), do not start dev server
++  ...(process.env.SKIP_WEB_SERVER
++    ? {}
++    : {
++        webServer: {
++          command: 'npm run dev',
++          url: 'http://localhost:5173',
++          reuseExistingServer: !process.env.CI,
++        },
++      }),
++})
+diff --git a/frontend/postcss.config.js b/frontend/postcss.config.js
+new file mode 100644
+index 0000000..2e7af2b
+--- /dev/null
++++ b/frontend/postcss.config.js
+@@ -0,0 +1,6 @@
++export default {
++  plugins: {
++    tailwindcss: {},
++    autoprefixer: {},
++  },
++}
+diff --git a/frontend/tailwind.config.js b/frontend/tailwind.config.js
+new file mode 100644
+index 0000000..7141e45
+--- /dev/null
++++ b/frontend/tailwind.config.js
+@@ -0,0 +1,8 @@
++/** @type {import('tailwindcss').Config} */
++export default {
++  content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
++  theme: {
++    extend: {},
++  },
++  plugins: [],
++}
+diff --git a/frontend/vite.config.ts b/frontend/vite.config.ts
+new file mode 100644
+index 0000000..3b6ddce
+--- /dev/null
++++ b/frontend/vite.config.ts
+@@ -0,0 +1,20 @@
++import { defineConfig } from 'vite'
++import react from '@vitejs/plugin-react'
++
++// https://vite.dev/config/
++export default defineConfig({
++  plugins: [react()],
++  server: {
++    port: 5173,
++    host: true,
++    // Proxy API to backend. In Docker use PROXY_TARGET=http://backend:3000
++    proxy: process.env.VITE_API_URL
++      ? undefined
++      : {
++          '/api': {
++            target: process.env.PROXY_TARGET || 'http://localhost:3000',
++            changeOrigin: true,
++          },
++        },
++  },
++})
+diff --git a/frontend/vitest.config.ts b/frontend/vitest.config.ts
+new file mode 100644
+index 0000000..13a73c7
+--- /dev/null
++++ b/frontend/vitest.config.ts
+@@ -0,0 +1,12 @@
++import { defineConfig } from 'vitest/config'
++import react from '@vitejs/plugin-react'
++
++export default defineConfig({
++  plugins: [react()],
++  test: {
++    environment: 'jsdom',
++    globals: true,
++    setupFiles: ['./src/test-setup.ts'],
++    exclude: ['**/node_modules/**', '**/dist/**', '**/e2e/**'],
++  },
++})
+diff --git a/frontend/tsconfig.json b/frontend/tsconfig.json
+new file mode 100644
+index 0000000..1ffef60
+--- /dev/null
++++ b/frontend/tsconfig.json
+@@ -0,0 +1,7 @@
++{
++  "files": [],
++  "references": [
++    { "path": "./tsconfig.app.json" },
++    { "path": "./tsconfig.node.json" }
++  ]
++}
+diff --git a/frontend/tsconfig.app.json b/frontend/tsconfig.app.json
+new file mode 100644
+index 0000000..2baad82
+--- /dev/null
++++ b/frontend/tsconfig.app.json
+@@ -0,0 +1,21 @@
++{
++  "compilerOptions": {
++    "tsBuildInfoFile": "./node_modules/.tmp/tsconfig.app.tsbuildinfo",
++    "target": "ES2020",
++    "useDefineForClassFields": true,
++    "lib": ["ES2020", "DOM", "DOM.Iterable"],
++    "module": "ESNext",
++    "skipLibCheck": true,
++    "moduleResolution": "bundler",
++    "allowImportingTsExtensions": true,
++    "isolatedModules": true,
++    "moduleDetection": "force",
++    "noEmit": true,
++    "jsx": "react-jsx",
++    "strict": true,
++    "noUnusedLocals": true,
++    "noUnusedParameters": true,
++    "noFallthroughCasesInSwitch": true
++  },
++  "include": ["src"]
++}
+diff --git a/frontend/tsconfig.node.json b/frontend/tsconfig.node.json
+new file mode 100644
+index 0000000..27c385f
+--- /dev/null
++++ b/frontend/tsconfig.node.json
+@@ -0,0 +1,12 @@
++{
++  "compilerOptions": {
++    "target": "ES2022",
++    "lib": ["ES2023"],
++    "module": "ESNext",
++    "skipLibCheck": true,
++    "moduleResolution": "bundler",
++    "noEmit": true,
++    "strict": true
++  },
++  "include": ["vite.config.ts"]
++}
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+new file mode 100644
+index 0000000..e121490
+--- /dev/null
++++ b/frontend/src/App.tsx
+@@ -0,0 +1,29 @@
++import { useEffect, useState } from 'react'
++
++const API_BASE = import.meta.env.VITE_API_URL || ''
++
++function App() {
++  const [backendStatus, setBackendStatus] = useState<'loading' | 'ok' | 'error'>('loading')
++
++  useEffect(() => {
++    const url = API_BASE ? `${API_BASE}/api/health` : '/api/health'
++    fetch(url)
++      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
++      .then(() => setBackendStatus('ok'))
++      .catch(() => setBackendStatus('error'))
++  }, [])
++
++  return (
++    <main className="min-h-screen flex flex-col items-center justify-center p-8">
++      <h1 className="text-2xl font-semibold text-gray-900">aine-training</h1>
++      <p className="mt-2 text-gray-600">Frontend + Backend shell. Todo list in later stories.</p>
++      <p className="mt-4 text-sm text-gray-500">
++        Backend: {backendStatus === 'loading' && 'Checking…'}
++        {backendStatus === 'ok' && 'Reachable'}
++        {backendStatus === 'error' && 'Not reachable'}
++      </p>
++    </main>
++  )
++}
++
++export default App
+diff --git a/frontend/src/App.test.tsx b/frontend/src/App.test.tsx
+new file mode 100644
+index 0000000..a437cc2
+--- /dev/null
++++ b/frontend/src/App.test.tsx
+@@ -0,0 +1,13 @@
++import { describe, it, expect } from 'vitest'
++import { render, screen, waitFor } from '@testing-library/react'
++import App from './App'
++
++describe('App', () => {
++  it('renders app title', async () => {
++    render(<App />)
++    expect(screen.getByText(/aine-training/i)).toBeInTheDocument()
++    await waitFor(() => {
++      expect(screen.getByText(/Backend:/)).toBeInTheDocument()
++    })
++  })
++})
+diff --git a/frontend/src/main.tsx b/frontend/src/main.tsx
+new file mode 100644
+index 0000000..bef5202
+--- /dev/null
++++ b/frontend/src/main.tsx
+@@ -0,0 +1,10 @@
++import { StrictMode } from 'react'
++import { createRoot } from 'react-dom/client'
++import './index.css'
++import App from './App.tsx'
++
++createRoot(document.getElementById('root')!).render(
++  <StrictMode>
++    <App />
++  </StrictMode>,
++)
+diff --git a/frontend/src/index.css b/frontend/src/index.css
+new file mode 100644
+index 0000000..b5c61c9
+--- /dev/null
++++ b/frontend/src/index.css
+@@ -0,0 +1,3 @@
++@tailwind base;
++@tailwind components;
++@tailwind utilities;
+diff --git a/frontend/src/vite-env.d.ts b/frontend/src/vite-env.d.ts
+new file mode 100644
+index 0000000..11f02fe
+--- /dev/null
++++ b/frontend/src/vite-env.d.ts
+@@ -0,0 +1 @@
++/// <reference types="vite/client" />
+diff --git a/frontend/src/test-setup.ts b/frontend/src/test-setup.ts
+new file mode 100644
+index 0000000..a9d0dd3
+--- /dev/null
++++ b/frontend/src/test-setup.ts
+@@ -0,0 +1 @@
++import '@testing-library/jest-dom/vitest'

@@ -1,0 +1,33 @@
+# aine-training: frontend + backend for local development and smoke tests
+# Run: docker-compose up
+# Frontend is reachable at http://localhost:5173 (dev) or http://localhost:80 (prod build)
+# Backend API is at http://localhost:3000 (or PORT from backend .env)
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "${BACKEND_PORT:-3000}:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+    volumes:
+      - ./backend:/app
+      - /app/node_modules  # prevent host node_modules from overwriting container deps
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    environment:
+      # Browser uses same origin; Vite proxy forwards /api to backend
+      - PROXY_TARGET=http://backend:3000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend

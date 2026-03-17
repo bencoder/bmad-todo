@@ -1,0 +1,23 @@
+# Dependencies (installed in container)
+node_modules/
+
+# Environment and secrets (never copy into image)
+.env
+.env.*
+
+# Build output
+dist/
+build/
+
+# Git and IDE
+.git
+.gitignore
+.idea
+.vscode
+*.log
+
+# Tests and coverage (not needed in runtime image)
+coverage/
+*.test.ts
+*.spec.ts
+tests/
