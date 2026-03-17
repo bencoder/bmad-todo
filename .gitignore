@@ -1,0 +1,94 @@
+# -----------------------------------------------------------------------------
+# BMAD / aine-training — include: _bmad, _bmad-output, docs, .cursor/skills, PRD
+# Exclude: secrets, IDE/OS junk, dependencies, and ephemeral build outputs.
+# -----------------------------------------------------------------------------
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+*.secret
+
+# OS
+.DS_Store
+.DS_Store?
+.AppleDouble
+.LSOverride
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE / editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-*
+.cursor/
+
+# Cursor (optional: remove these lines to track Cursor settings with the repo)
+# .cursor/workspaceStorage/
+# .cursor/globalStorage/
+
+# Dependencies
+node_modules/
+vendor/
+bower_components/
+.pnp
+.pnp.js
+.jest/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+.venv/
+venv/
+ENV/
+env/
+.eggs/
+*.egg-info/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build / dist / coverage
+dist/
+build/
+out/
+.next/
+.nuxt/
+.output/
+coverage/
+*.lcov
+.parcel-cache/
+.turbo/
+*.tsbuildinfo
+
+# Logs and temp
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.temp/
+tmp/
+temp/
+*.tmp
+*.temp
+.cache/
+
+# Optional: ignore implementation artifacts (sprint status, story outputs)
+# Uncomment to keep the repo focused on planning artifacts only.
+# _bmad-output/implementation-artifacts/
+
+# Optional: ignore all of _bmad-output if you prefer to regenerate or store elsewhere
+# _bmad-output/
