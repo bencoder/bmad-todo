@@ -9,6 +9,24 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   app.setValidatorCompiler(validatorCompiler)
   app.setSerializerCompiler(serializerCompiler)
+  app.setSchemaErrorFormatter((errors, dataVar) => {
+    const fallback = 'Validation failed'
+    const msg =
+      errors.length === 0
+        ? fallback
+        : errors
+            .map((e: { instancePath?: string; message?: string; keyword?: string; params?: unknown }) => {
+              const path = [dataVar, e.instancePath].filter(Boolean).join('')
+              const part = [path, e.message].filter(Boolean).join(' ').trim()
+              return part || fallback
+            })
+            .join(', ')
+            .trim() || fallback
+    const err = new Error(msg) as Error & { code?: string; statusCode?: number }
+    err.code = 'VALIDATION_ERROR'
+    err.statusCode = 400
+    return err
+  })
   app.decorate('db', db)
 
   await app.register(cors, { origin: true })
@@ -27,7 +45,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // Errors (validation, server) return JSON { code, message }
   app.setErrorHandler((err: unknown, request, reply) => {
     const e = err as { code?: string; message?: string; statusCode?: number }
-    const isValidation = e.code === 'FST_ERR_VALIDATION'
+    const isValidation = e.code === 'FST_ERR_VALIDATION' || e.code === 'VALIDATION_ERROR'
     const code = isValidation ? 'VALIDATION_ERROR' : 'INTERNAL_ERROR'
     const message = isValidation ? (e.message ?? 'Validation failed') : 'Internal Server Error'
     const status = e.statusCode ?? (code === 'VALIDATION_ERROR' ? 400 : 500)

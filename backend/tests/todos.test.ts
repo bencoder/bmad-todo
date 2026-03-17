@@ -77,3 +77,111 @@ test('5xx returns JSON { code, message }', async () => {
   assert.strictEqual(typeof body.message, 'string')
   await app.close()
 })
+
+test('POST /api/todos returns 201 and created task with valid description', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'New task' },
+  })
+  assert.strictEqual(res.statusCode, 201)
+  const body = res.json()
+  assert.strictEqual(typeof body.id, 'number')
+  assert.strictEqual(body.description, 'New task')
+  assert.strictEqual(body.completed, false)
+  assert.strictEqual(typeof body.createdAt, 'string')
+  assert.ok(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(body.createdAt), 'createdAt should be ISO 8601')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].description, 'New task')
+  await app.db.delete(tasks)
+  await app.close()
+})
+
+test('POST /api/todos returns 400 for invalid body', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: {},
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.strictEqual(typeof body.message, 'string')
+  assert.ok(/description|required|body/i.test(body.message), 'message should mention description or required')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes.json().length, 0)
+  await app.close()
+})
+
+test('POST /api/todos returns 400 for empty description', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: '' },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.ok(/description|required|min|string/i.test(body.message), 'message should mention description or validation reason')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes.json().length, 0)
+  await app.close()
+})
+
+test('POST /api/todos returns 400 for whitespace-only description', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: '   \t  ' },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.ok(/description|min|string/i.test(body.message), 'message should mention validation reason')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes.json().length, 0)
+  await app.close()
+})
+
+test('POST /api/todos returns 400 for non-string description', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 123 },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.strictEqual(typeof body.message, 'string')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes.json().length, 0)
+  await app.close()
+})
+
+test('POST /api/todos returns 400 for null description', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: null },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes.json().length, 0)
+  await app.close()
+})

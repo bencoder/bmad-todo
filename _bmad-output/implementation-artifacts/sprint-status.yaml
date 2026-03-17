@@ -1,5 +1,5 @@
 # generated: 2026-03-17
-# last_updated: 2026-03-17 (story 1-5 review)
+# last_updated: 2026-03-17 (story 3-1 review)
 # project: aine-training
 # project_key: NOKEY
 # tracking_system: file-system
@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-03-17"
-last_updated: "2026-03-17"
+last_updated: "2026-03-17 (story 3-1 created)"
 project: aine-training
 project_key: NOKEY
 tracking_system: file-system
@@ -53,8 +53,8 @@ development_status:
   2-1-display-task-list-with-taskcards: review
   2-2-tasklist-container-and-state-routing: review
   epic-2-retrospective: optional
-  epic-3: backlog
-  3-1-create-task-api-post: backlog
+  epic-3: in-progress
+  3-1-create-task-api-post: review
   3-2-addtaskrow-and-add-task-in-ui: backlog
   epic-3-retrospective: optional
   epic-4: backlog
