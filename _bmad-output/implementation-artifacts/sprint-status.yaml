@@ -35,7 +35,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 
 generated: "2026-03-17"
-last_updated: "2026-03-17 (epic 1 and all stories done)"
+last_updated: "2026-03-17"
 project: aine-training
 project_key: NOKEY
 tracking_system: file-system
@@ -51,7 +51,7 @@ development_status:
   epic-1-retrospective: optional
   epic-2: in-progress
   2-1-display-task-list-with-taskcards: review
-  2-2-tasklist-container-and-state-routing: backlog
+  2-2-tasklist-container-and-state-routing: review
   epic-2-retrospective: optional
   epic-3: backlog
   3-1-create-task-api-post: backlog

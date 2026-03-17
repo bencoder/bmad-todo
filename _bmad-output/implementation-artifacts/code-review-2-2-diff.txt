@@ -1,0 +1,317 @@
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index f64f1c1..b4ba880 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -1,61 +1,9 @@
+-import { useTodos } from './hooks/useTodos'
+-import { LoadingState } from './components/LoadingState'
+-import { EmptyState } from './components/EmptyState'
+-import { ErrorState, DEFAULT_ERROR_MESSAGE } from './components/ErrorState'
+-import { TaskCard } from './components/TaskCard'
+-
+-function getErrorMessage(error: unknown): string {
+-  if (error instanceof Error) {
+-    const msg = error.message?.trim()
+-    return msg !== undefined && msg !== '' ? error.message : DEFAULT_ERROR_MESSAGE
+-  }
+-  if (error && typeof error === 'object' && 'message' in error) {
+-    const raw = (error as { message: unknown }).message
+-    const msg = typeof raw === 'string' ? raw.trim() : ''
+-    return msg !== '' ? msg : DEFAULT_ERROR_MESSAGE
+-  }
+-  return DEFAULT_ERROR_MESSAGE
+-}
++import { TaskList } from './components/TaskList'
+ 
+ function App() {
+-  const { data, isLoading, isError, error, refetch } = useTodos()
+-
+-  if (isLoading) {
+-    return (
+-      <main className="min-h-screen flex flex-col">
+-        <LoadingState />
+-      </main>
+-    )
+-  }
+-
+-  if (isError) {
+-    return (
+-      <main className="min-h-screen flex flex-col">
+-        <ErrorState
+-          message={getErrorMessage(error)}
+-          onRetry={() => refetch().catch(() => {})}
+-        />
+-      </main>
+-    )
+-  }
+-
+-  if (!data || !Array.isArray(data) || data.length === 0) {
+-    return (
+-      <main className="min-h-screen flex flex-col">
+-        <EmptyState />
+-      </main>
+-    )
+-  }
+-
+   return (
+     <main className="min-h-screen flex flex-col">
+-      <div className="mx-auto w-full max-w-[560px] p-6">
+-        <ul role="list" className="flex flex-col list-none gap-2">
+-          {data.map((todo, index) => (
+-            <TaskCard key={todo.id ?? index} todo={todo} />
+-          ))}
+-        </ul>
+-      </div>
++      <TaskList />
+     </main>
+   )
+ }
+diff --git a/frontend/src/components/AddTaskRow.tsx b/frontend/src/components/AddTaskRow.tsx
+new file mode 100644
+index 0000000..904f7f1
+--- /dev/null
++++ b/frontend/src/components/AddTaskRow.tsx
+@@ -0,0 +1,37 @@
++/**
++ * AddTaskRow: text input + primary "Add" button at top of list.
++ * Presentational in Story 2.2; submit wired to API in Epic 3 Story 3.2 (Direction C, UX-DR2).
++ */
++export interface AddTaskRowProps {
++  /** Optional submit handler; no-op in this story. */
++  onSubmit?: (value: string) => void
++}
++
++export function AddTaskRow({ onSubmit }: AddTaskRowProps) {
++  function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
++    e.preventDefault()
++    onSubmit?.('')
++  }
++
++  return (
++    <form onSubmit={handleSubmit} className="flex gap-2 items-center">
++      <label htmlFor="add-task-input" className="sr-only">
++        Add a task
++      </label>
++      <input
++        id="add-task-input"
++        type="text"
++        placeholder="Add a task"
++        aria-label="Add a task"
++        className="flex-1 rounded border border-gray-300 px-3 py-2 text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
++      />
++      <button
++        type="submit"
++        className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
++        aria-label="Add"
++      >
++        Add
++      </button>
++    </form>
++  )
++}
++
++diff --git a/frontend/src/components/AddTaskRow.test.tsx b/frontend/src/components/AddTaskRow.test.tsx
++new file mode 100644
++index 0000000..b1ec263
++--- /dev/null
+++++ b/frontend/src/components/AddTaskRow.test.tsx
++@@ -0,0 +1,41 @@
++import { describe, it, expect, vi } from 'vitest'
++import { render, screen, fireEvent } from '@testing-library/react'
++import { AddTaskRow } from './AddTaskRow'
++
++describe('AddTaskRow', () => {
++  it('renders input with placeholder "Add a task"', () => {
++    render(<AddTaskRow />)
++    const input = screen.getByPlaceholderText('Add a task')
++    expect(input).toBeInTheDocument()
++    expect(input).toHaveAttribute('type', 'text')
++  })
++
++  it('renders Add button', () => {
++    render(<AddTaskRow />)
++    const button = screen.getByRole('button', { name: /add/i })
++    expect(button).toBeInTheDocument()
++    expect(button).toHaveTextContent('Add')
++    expect(button).toHaveAttribute('type', 'submit')
++  })
++
++  it('has accessible label or aria-label for input', () => {
++    render(<AddTaskRow />)
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    expect(input).toBeInTheDocument()
++  })
++
++  it('submit does not throw when form is submitted', () => {
++    render(<AddTaskRow />)
++    const form = screen.getByRole('textbox', { name: /add a task/i }).closest('form')
++    expect(form).toBeInTheDocument()
++    expect(() => fireEvent.submit(form!)).not.toThrow()
++  })
++
++  it('calls optional onSubmit when provided', () => {
++    const onSubmit = vi.fn()
++    render(<AddTaskRow onSubmit={onSubmit} />)
++    const form = screen.getByRole('textbox', { name: /add a task/i }).closest('form')
++    fireEvent.submit(form!)
++    expect(onSubmit).toHaveBeenCalled()
++  })
++})
++
++diff --git a/frontend/src/components/TaskList.tsx b/frontend/src/components/TaskList.tsx
++new file mode 100644
++index 0000000..0f3daff
++--- /dev/null
+++++ b/frontend/src/components/TaskList.tsx
++@@ -0,0 +1,51 @@
++import { useTodos } from '../hooks/useTodos'
++import { LoadingState } from './LoadingState'
++import { EmptyState } from './EmptyState'
++import { ErrorState, DEFAULT_ERROR_MESSAGE } from './ErrorState'
++import { AddTaskRow } from './AddTaskRow'
++import { TaskCard } from './TaskCard'
++
++function getErrorMessage(error: unknown): string {
++  if (error instanceof Error) {
++    const msg = error.message?.trim()
++    return msg !== undefined && msg !== '' ? error.message : DEFAULT_ERROR_MESSAGE
++  }
++  if (error && typeof error === 'object' && 'message' in error) {
++    const raw = (error as { message: unknown }).message
++    const msg = typeof raw === 'string' ? raw.trim() : ''
++    return msg !== '' ? msg : DEFAULT_ERROR_MESSAGE
++  }
++  return DEFAULT_ERROR_MESSAGE
++}
++
++export function TaskList() {
++  const { data, isLoading, isError, error, refetch } = useTodos()
++
++  if (isLoading) {
++    return <LoadingState />
++  }
++
++  if (isError) {
++    return (
++      <ErrorState
++        message={getErrorMessage(error)}
++        onRetry={() => refetch().catch(() => {})}
++      />
++    )
++  }
++
++  if (!data || !Array.isArray(data) || data.length === 0) {
++    return <EmptyState />
++  }
++
++  return (
++    <div className="mx-auto w-full max-w-[560px] p-6">
++      <AddTaskRow />
++      <ul role="list" className="mt-4 flex flex-col list-none gap-2">
++        {data.map((todo, index) => (
++          <TaskCard key={todo.id ?? index} todo={todo} />
++        ))}
++      </ul>
++    </div>
++  )
++}
++
++diff --git a/frontend/src/components/TaskList.test.tsx b/frontend/src/components/TaskList.test.tsx
++new file mode 100644
++index 0000000..dbe7861
++--- /dev/null
+++++ b/frontend/src/components/TaskList.test.tsx
++@@ -0,0 +1,93 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import { TaskList } from './TaskList'
++import * as useTodosModule from '../hooks/useTodos'
++
++vi.mock('../hooks/useTodos')
++
++describe('TaskList', () => {
++  beforeEach(() => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: undefined,
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++  })
++
++  it('shows LoadingState when isLoading is true', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: undefined,
++      isLoading: true,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    render(<TaskList />)
++    expect(screen.getByText('Loading tasks')).toBeInTheDocument()
++    expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
++  })
++
++  it('shows ErrorState when isError is true with message and retry', () => {
++    const refetch = vi.fn(() => Promise.resolve())
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: undefined,
++      isLoading: false,
++      isError: true,
++      error: new Error('Server error'),
++      refetch,
++    })
++    render(<TaskList />)
++    expect(screen.getByText(/server error/i)).toBeInTheDocument()
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    expect(retryButton).toBeInTheDocument()
++    retryButton.click()
++    expect(refetch).toHaveBeenCalled()
++  })
++
++  it('shows EmptyState when data is empty array', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: [],
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    render(<TaskList />)
++    expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
++  })
++
++  it('shows EmptyState when data is undefined', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: undefined,
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    render(<TaskList />)
++    expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
++  })
++
++  it('shows list with AddTaskRow and TaskCards when data has items', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: [
++        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
++        { id: 2, description: 'Second task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
++      ],
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    render(<TaskList />)
++    expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
++    expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
++    expect(screen.getByText('First task')).toBeInTheDocument()
++    expect(screen.getByText('Second task')).toBeInTheDocument()
++    const list = screen.getByRole('list')
++    expect(list).toBeInTheDocument()
++    expect(list.closest('.max-w-\\[560px\\]')).toBeInTheDocument()
++  })
++})
