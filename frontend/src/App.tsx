@@ -1,33 +1,30 @@
-import { useEffect, useState } from 'react'
-
-// Normalize: trim trailing slash so we don't produce double slashes
-const raw = import.meta.env.VITE_API_URL ?? ''
-const API_BASE = typeof raw === 'string' ? raw.replace(/\/+$/, '') : ''
+import { useTodos } from './hooks/useTodos'
+import { LoadingState } from './components/LoadingState'
 
 function App() {
-  const [backendStatus, setBackendStatus] = useState<'loading' | 'ok' | 'error'>('loading')
+  const { data, isLoading } = useTodos()
 
-  useEffect(() => {
-    const controller = new AbortController()
-    const url = API_BASE ? `${API_BASE}/api/health` : '/api/health'
-    fetch(url, { signal: controller.signal })
-      .then((res) => (res.ok ? res.json() : Promise.reject(new Error(res.statusText))))
-      .then(() => setBackendStatus('ok'))
-      .catch((err) => {
-        if (err?.name !== 'AbortError') setBackendStatus('error')
-      })
-    return () => controller.abort()
-  }, [])
+  if (isLoading) {
+    return (
+      <main className="min-h-screen flex flex-col">
+        <LoadingState />
+      </main>
+    )
+  }
 
   return (
     <main className="min-h-screen flex flex-col items-center justify-center p-8">
       <h1 className="text-2xl font-semibold text-gray-900">aine-training</h1>
-      <p className="mt-2 text-gray-600">Frontend + Backend shell. Todo list in later stories.</p>
-      <p className="mt-4 text-sm text-gray-500">
-        Backend: {backendStatus === 'loading' && 'Checking…'}
-        {backendStatus === 'ok' && 'Reachable'}
-        {backendStatus === 'error' && 'Not reachable'}
-      </p>
+      <p className="mt-2 text-gray-600">Todo list (loaded). Full list UI in later stories.</p>
+      {data && (
+        <p className="mt-4 text-sm text-gray-500">
+          {data.length === 0
+            ? '0 tasks loaded.'
+            : data.length === 1
+              ? '1 task loaded.'
+              : `${data.length} tasks loaded.`}
+        </p>
+      )}
     </main>
   )
 }
