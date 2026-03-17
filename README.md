@@ -26,8 +26,9 @@ The frontend is configured to call the backend via `VITE_API_URL` (defaults to p
 
 ```bash
 cd backend
-cp .env.example .env   # optional: set PORT, etc.
+cp .env.example .env   # optional: set PORT, DB_PATH or DATABASE_URL
 npm install
+npm run db:migrate     # create DB and run migrations (uses ./data/todos.db by default)
 npm run dev
 ```
 
@@ -53,7 +54,7 @@ Frontend runs at http://localhost:5173. If `VITE_API_URL` is not set, Vite proxi
 ## Project structure
 
 - `frontend/` — Vite + React + TypeScript, Tailwind, Vitest, Playwright, Prettier, ESLint
-- `backend/` — Fastify + TypeScript, Prettier; SQLite/Drizzle added in a later story
+- `backend/` — Fastify + TypeScript, Prettier, Drizzle ORM + SQLite (see `backend/.env.example` for `DB_PATH` / `DATABASE_URL`)
 - `docker-compose.yml` — services `frontend` and `backend`
 
 ## Scripts
@@ -66,3 +67,5 @@ Frontend runs at http://localhost:5173. If `VITE_API_URL` is not set, Vite proxi
 | frontend/ | `npm run test:e2e`  | E2E tests (Playwright) |
 | backend/  | `npm run dev`  | Fastify with tsx watch     |
 | backend/  | `npm run build`| Compile TypeScript to dist/|
+| backend/  | `npm run db:generate` | Generate Drizzle migrations (Drizzle Kit) |
+| backend/  | `npm run db:migrate`  | Run Drizzle migrations against the DB   |
