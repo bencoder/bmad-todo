@@ -30,14 +30,16 @@ describe('App', () => {
     vi.unstubAllGlobals()
   })
 
-  it('shows loading state while fetch is in progress', () => {
+  it('shows loading state while fetch is in progress', async () => {
     vi.mocked(fetch).mockReturnValue(
       new Promise<Response>(() => {
         /* never resolves so query stays loading */
       })
     )
     renderApp()
-    expect(screen.getByText('Loading tasks')).toBeInTheDocument()
+    await waitFor(() => {
+      expect(screen.getByText('Loading tasks')).toBeInTheDocument()
+    })
     expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
   })
 
@@ -57,7 +59,7 @@ describe('App', () => {
     expect(screen.queryByText('Loading tasks')).not.toBeInTheDocument()
   })
 
-  it('calls fetch with /api/todos URL', async () => {
+  it('when fetch returns empty array, shows empty state and add affordance and called /api/todos', async () => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue({
       ok: true,
@@ -65,8 +67,27 @@ describe('App', () => {
     } as Response)
     renderApp()
     await waitFor(() => {
-      expect(screen.getByText(/aine-training/)).toBeInTheDocument()
+      expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
     })
     expect(mockFetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/todos$/))
+    const addButton = screen.getByRole('button', { name: /add your first task/i })
+    expect(addButton).toBeInTheDocument()
+    expect(addButton).toHaveAttribute('type', 'button')
+    expect(addButton).not.toHaveAttribute('tabIndex', '-1')
+    addButton.focus()
+    expect(document.activeElement).toBe(addButton)
+  })
+
+  it('does not show empty state while loading', async () => {
+    vi.mocked(fetch).mockReturnValue(
+      new Promise<Response>(() => {
+        /* never resolves */
+      })
+    )
+    renderApp()
+    await waitFor(() => {
+      expect(screen.getByText('Loading tasks')).toBeInTheDocument()
+    })
+    expect(screen.queryByText(/no tasks yet/i)).not.toBeInTheDocument()
   })
 })

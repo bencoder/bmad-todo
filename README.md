@@ -18,7 +18,7 @@ docker-compose up
 - **Frontend:** http://localhost:5173 (Vite dev server)
 - **Backend API:** http://localhost:3000 (e.g. `GET /api/health`)
 
-The frontend is configured to call the backend via `VITE_API_URL` (defaults to proxy to `http://localhost:3000` when running in Docker Compose). Open http://localhost:5173 in a browser; the app shows "Backend: Reachable" when the API is available.
+The frontend is configured to call the backend via `VITE_API_URL` (defaults to proxy to `http://localhost:3000` when running in Docker Compose). Open http://localhost:5173 in a browser; when the API is available the app shows either the empty state ("No tasks yet") or the todo list after loading.
 
 ## Run frontend and backend separately
 
@@ -47,7 +47,7 @@ Frontend runs at http://localhost:5173. If `VITE_API_URL` is not set, Vite proxi
 
 ## Smoke verification
 
-1. **Manual:** Run `docker-compose up`, open http://localhost:5173, confirm the page loads and shows "Backend: Reachable". Call `curl http://localhost:3000/api/health` and expect `{"ok":true}`.
+1. **Manual:** Run `docker-compose up`, open http://localhost:5173, confirm the page loads and shows either "No tasks yet" (empty list) or the todo list after loading. Call `curl http://localhost:3000/api/health` and expect `{"ok":true}`.
 
 2. **E2E (Playwright):** From `frontend/`, run `npm run test:e2e`. **The backend (or full stack via `docker-compose up`) must be running first**, or tests that call the API will fail. You can rely on `playwright.config.ts` to start the frontend dev server; ensure the backend is reachable at the URL the frontend uses (e.g. proxy or `VITE_API_URL`).
 

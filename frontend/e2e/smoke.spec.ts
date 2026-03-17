@@ -7,5 +7,8 @@ test('frontend loads and shows app title', async ({ page }) => {
 
 test('frontend can reach backend', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByText('Reachable')).toBeVisible({ timeout: 10000 })
+  // Once GET /api/todos completes we show either empty state or list (no longer "Backend: Reachable")
+  await expect(
+    page.getByText(/no tasks yet|tasks? loaded|aine-training/i).first()
+  ).toBeVisible({ timeout: 10000 })
 })
