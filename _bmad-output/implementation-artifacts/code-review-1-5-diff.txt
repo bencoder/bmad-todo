@@ -1,0 +1,214 @@
+diff --git a/frontend/src/App.test.tsx b/frontend/src/App.test.tsx
+index 0c08843..b5bc3b4 100644
+--- a/frontend/src/App.test.tsx
++++ b/frontend/src/App.test.tsx
+@@ -1,5 +1,6 @@
+ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+ import { render, screen, waitFor } from '@testing-library/react'
++import { fireEvent } from '@testing-library/react'
+ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import App from './App'
+ 
+@@ -90,4 +91,65 @@ describe('App', () => {
+     })
+     expect(screen.queryByText(/no tasks yet/i)).not.toBeInTheDocument()
+   })
++
++  it('when fetch fails, shows error state with message and Retry button', async () => {
++    vi.mocked(fetch).mockResolvedValue({
++      ok: false,
++      status: 500,
++      json: () => Promise.resolve({ message: 'Server error' }),
++    } as Response)
++    renderApp()
++    await waitFor(() => {
++      expect(screen.getByText('Server error')).toBeInTheDocument()
++    })
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    expect(retryButton).toBeInTheDocument()
++    expect(retryButton).not.toHaveAttribute('tabIndex', '-1')
++    expect(document.querySelector('[aria-live]')).toBeInTheDocument()
++  })
++
++  it('when fetch fails with no body message, shows default error message and Retry', async () => {
++    vi.mocked(fetch).mockResolvedValue({
++      ok: false,
++      status: 500,
++      statusText: '',
++      json: () => Promise.resolve({}),
++    } as Response)
++    renderApp()
++    await waitFor(() => {
++      expect(screen.getByText(/couldn't load tasks/i)).toBeInTheDocument()
++    })
++    expect(screen.getByRole('button', { name: /retry/i })).toBeInTheDocument()
++  })
++
++  it('when in error state, clicking Retry triggers refetch and shows list on success', async () => {
++    let callCount = 0
++    vi.mocked(fetch).mockImplementation(() => {
++      callCount += 1
++      if (callCount === 1) {
++        return Promise.resolve({
++          ok: false,
++          status: 503,
++          json: () => Promise.resolve({ message: 'Unavailable' }),
++        } as Response)
++      }
++      return Promise.resolve({
++        ok: true,
++        json: () =>
++          Promise.resolve([
++            { id: 1, description: 'Task one', completed: false, createdAt: '2025-01-01T00:00:00.000Z' },
++          ]),
++      } as Response)
++    })
++    renderApp()
++    await waitFor(() => {
++      expect(screen.getByText('Unavailable')).toBeInTheDocument()
++    })
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    fireEvent.click(retryButton)
++    await waitFor(() => {
++      expect(screen.getByText('1 task loaded.')).toBeInTheDocument()
++    })
++    expect(screen.queryByText('Unavailable')).not.toBeInTheDocument()
++  })
+ })
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index a0b7457..d7ca8cd 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -1,9 +1,21 @@
+ import { useTodos } from './hooks/useTodos'
+ import { LoadingState } from './components/LoadingState'
+ import { EmptyState } from './components/EmptyState'
++import { ErrorState } from './components/ErrorState'
++
++const DEFAULT_ERROR_MESSAGE = "Couldn't load tasks"
++
++function getErrorMessage(error: unknown): string {
++  if (error instanceof Error && error.message) return error.message
++  if (error && typeof error === 'object' && 'message' in error && typeof (error as { message: unknown }).message === 'string') {
++    const msg = (error as { message: string }).message
++    return msg || DEFAULT_ERROR_MESSAGE
++  }
++  return DEFAULT_ERROR_MESSAGE
++}
+ 
+ function App() {
+-  const { data, isLoading } = useTodos()
++  const { data, isLoading, isError, error, refetch } = useTodos()
+ 
+   if (isLoading) {
+     return (
+@@ -13,6 +25,17 @@ function App() {
+     )
+   }
+ 
++  if (isError) {
++    return (
++      <main className="min-h-screen flex flex-col">
++        <ErrorState
++          message={getErrorMessage(error)}
++          onRetry={() => refetch()}
++        />
++      </main>
++    )
++  }
++
+   if (!isLoading && data && Array.isArray(data) && data.length === 0) {
+     return (
+       <main className="min-h-screen flex flex-col">
+diff --git a/frontend/src/components/ErrorState.tsx b/frontend/src/components/ErrorState.tsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/components/ErrorState.tsx
+@@ -0,0 +1,29 @@
++/**
++ * Error state: clear message and Retry button when list fails to load.
++ * aria-live on message for assistive tech; Retry is primary and focusable (UX-DR7, UX-DR11).
++ */
++export interface ErrorStateProps {
++  message?: string
++  onRetry: () => void
++}
++
++export function ErrorState({ message = "Couldn't load tasks", onRetry }: ErrorStateProps) {
++  return (
++    <section
++      className="flex flex-col items-center justify-center gap-4 p-8 min-h-[12rem]"
++      aria-label="Error loading tasks"
++    >
++      <div aria-live="assertive" role="alert">
++        {message}
++      </div>
++      <button
++        type="button"
++        onClick={onRetry}
++        className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
++        aria-label="Retry"
++      >
++        Retry
++      </button>
++    </section>
++  )
++}
+diff --git a/frontend/src/components/ErrorState.test.tsx b/frontend/src/components/ErrorState.test.tsx
+new file mode 100644
+--- /dev/null
++++ b/frontend/src/components/ErrorState.test.tsx
+@@ -0,0 +1,53 @@
++import { describe, it, expect, vi } from 'vitest'
++import { render, screen, fireEvent } from '@testing-library/react'
++import { ErrorState } from './ErrorState'
++
++describe('ErrorState', () => {
++  it('shows default error message "Couldn\'t load tasks"', () => {
++    render(<ErrorState onRetry={vi.fn()} />)
++    expect(screen.getByText(/couldn't load tasks/i)).toBeInTheDocument()
++  })
++
++  it('shows custom message when message prop is provided', () => {
++    render(<ErrorState onRetry={vi.fn()} message="Network error" />)
++    expect(screen.getByText('Network error')).toBeInTheDocument()
++  })
++
++  it('shows a Retry button with visible label', () => {
++    render(<ErrorState onRetry={vi.fn()} />)
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    expect(retryButton).toBeInTheDocument()
++    expect(retryButton).toHaveAttribute('type', 'button')
++  })
++
++  it('calls onRetry when Retry is clicked', () => {
++    const onRetry = vi.fn()
++    render(<ErrorState onRetry={onRetry} />)
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    fireEvent.click(retryButton)
++    expect(onRetry).toHaveBeenCalledTimes(1)
++  })
++
++  it('Retry button is focusable', () => {
++    render(<ErrorState onRetry={vi.fn()} />)
++    const retryButton = screen.getByRole('button', { name: /retry/i })
++    expect(retryButton).not.toHaveAttribute('tabIndex', '-1')
++    retryButton.focus()
++    expect(document.activeElement).toBe(retryButton)
++  })
++
++  it('error message region has aria-live for assistive tech', () => {
++    render(<ErrorState onRetry={vi.fn()} />)
++    const liveRegion = document.querySelector('[aria-live]')
++    expect(liveRegion).toBeInTheDocument()
++    expect(liveRegion).toHaveTextContent(/couldn't load tasks/i)
++  })
++
++  it('uses section semantics and consistent layout (min-height, padding)', () => {
++    render(<ErrorState onRetry={vi.fn()} />)
++    const section = document.querySelector('section')
++    expect(section).toBeInTheDocument()
++    expect(section).toHaveClass('min-h-[12rem]')
++    expect(section).toHaveClass('p-8')
++  })
++})
