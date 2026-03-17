@@ -134,7 +134,7 @@ User can change the textual description of an existing task in one or two action
 **FRs covered:** FR12, FR13, FR14.
 
 ### Epic 6: Accessibility, responsiveness, and quality
-User can operate all core actions via keyboard; the interface is self-explanatory without onboarding; the app meets WCAG 2.1 Level AA, works on desktop and mobile with responsive layout and touch-friendly actions, and supports latest major and mobile browsers. Critical journeys and core logic are covered by automated tests.
+User can operate all core actions via keyboard; the interface is self-explanatory without onboarding; the app meets WCAG 2.1 Level AA, works on desktop and mobile with responsive layout and touch-friendly actions, and supports latest major and mobile browsers. (Testing is part of each functional story; see NFR-V1, NFR-V2.)
 **FRs covered:** FR24, FR25, FR26, FR27, FR28.
 
 ---
@@ -156,6 +156,7 @@ So that I can open the app in a browser and have a working shell with the backen
 **Then** the frontend serves a single-page app (e.g. Vite dev server or built assets) and the backend serves on its configured port
 **And** the frontend can call the backend (env `VITE_API_URL` or proxy)
 **And** Frontend: Vite + React + TypeScript; Tailwind, Prettier, ESLint added. Backend: Fastify with TypeScript and Prettier. Two Dockerfiles and root `docker-compose.yml`.
+**And** A smoke test or manual verification confirms both services run and the frontend can reach the backend.
 
 ### Story 1.2: Backend todo API and SQLite persistence
 
@@ -171,6 +172,7 @@ So that my list can persist and support future features.
 **And** Task shape: `id`, `description`, `completed`, `createdAt` (camelCase, ISO 8601 for date)
 **And** Persistence uses Drizzle ORM + SQLite; table `tasks` with columns `id`, `description`, `completed`, `created_at`, and optional `user_id`; migrations via Drizzle Kit
 **And** Request/response validated with Zod; errors return JSON `{ code, message }` with appropriate HTTP status; CORS allows frontend origin
+**And** GET /api/todos and error responses are covered by backend unit or integration tests (NFR-V2)
 
 ### Story 1.3: Frontend fetch and loading state
 
@@ -185,6 +187,7 @@ So that I know the app is working and not stuck.
 **Then** the UI shows a loading state (spinner or skeleton list)
 **And** Loading state is announced to assistive tech (e.g. aria-busy or aria-live and "Loading tasks")
 **And** TanStack Query is used for the fetch; no blank screen while loading
+**And** The loading state and fetch behavior are covered by unit or integration tests
 
 ### Story 1.4: Empty state when there are no tasks
 
@@ -199,6 +202,7 @@ So that I know the app is working and how to add my first task.
 **Then** the UI shows an empty state with a short message (e.g. "No tasks yet")
 **And** There is an obvious add affordance (e.g. add input or "Add your first task" control)
 **And** The empty state and add affordance are focusable and screen-reader accessible
+**And** The empty state is covered by unit or integration tests
 
 ### Story 1.5: Error state and retry when list fails to load
 
@@ -213,6 +217,7 @@ So that I am never left on a blank or cryptic screen.
 **Then** the UI shows an error state with a clear message (e.g. "Couldn't load tasks")
 **And** A Retry control is visible and focusable; activating it triggers a refetch
 **And** The error message is announced (e.g. aria-live) and the user is never on a blank screen
+**And** The error state and retry behavior are covered by unit or integration tests
 
 ---
 
@@ -234,6 +239,7 @@ So that I can scan my list and know what is done and when I added each task.
 **And** Completed tasks are visually distinct (e.g. strikethrough and muted color); active tasks are primary
 **And** The list uses semantic list markup (e.g. role="list") and a max-width container with padding; cards have a gap between them
 **And** List is visible with no blocking delay after open (NFR-P1)
+**And** Task list display and TaskCard rendering are covered by unit or integration tests
 
 ### Story 2.2: TaskList container and state routing
 
@@ -248,6 +254,7 @@ So that I always see a clear state and know what to do next.
 **Then** the UI shows exactly one of: LoadingState (while loading), EmptyState (when list is empty), ErrorState (when fetch failed), or the list of TaskCards (when data exists)
 **And** AddTaskRow (or add affordance) is at the top of the list area
 **And** After refresh or a new session, the same list loads from the API and persists (FR15, FR16)
+**And** State routing (loading / empty / error / list) is covered by unit or integration tests
 
 ---
 
@@ -268,6 +275,7 @@ So that I can add tasks from the UI and have them persisted.
 **Then** the request is validated with Zod (non-empty description or per product rule)
 **And** On success I receive 201 and the created task object (id, description, completed, createdAt)
 **And** On validation failure I receive 400 with `{ code, message }`; the task is stored in SQLite
+**And** POST success and validation failure are covered by backend unit or integration tests
 
 ### Story 3.2: AddTaskRow and add task in UI
 
@@ -283,6 +291,7 @@ So that the new task appears in the list right away without extra steps.
 **And** The input clears after successful add; description is trimmed
 **And** AddTaskRow has a visible label or aria-label; Enter submits; flow completes in under 10 seconds under normal conditions (NFR-P2)
 **And** If the API returns an error, an inline error is shown and the user can correct or retry (UX-DR12)
+**And** The add-task flow is covered by integration or E2E tests (NFR-V1)
 
 ---
 
@@ -303,6 +312,7 @@ So that I can track progress without extra steps.
 **Then** the app sends PATCH to the API with `{ completed: true | false }` and the list updates (invalidate or optimistic)
 **And** The UI reflects the new state immediately (NFR-P3); completed tasks show strikethrough and muted styling
 **And** Checkbox has correct label/association for accessibility
+**And** PATCH completion and checkbox behavior are covered by backend tests and frontend integration or E2E tests
 
 ### Story 4.2: Delete task API and delete control
 
@@ -317,6 +327,7 @@ So that I can remove tasks quickly and clearly.
 **Then** the app sends DELETE to the API for that task and removes it from the list
 **And** No multi-step menu or confirmation is required (or one lightweight confirm if product specifies)
 **And** The control is visible or clearly reachable (not hover-only) and works with keyboard and touch
+**And** DELETE and delete-control behavior are covered by backend tests and frontend integration or E2E tests
 
 ---
 
@@ -337,12 +348,13 @@ So that I can fix or update text without leaving the list.
 **Then** the label becomes an inline input (or single-step edit flow); I can change the text and save (blur or Enter) or cancel (Escape)
 **And** On save, the app sends PATCH with `{ description }` and the list updates; only one task is in edit mode at a time
 **And** The updated task is visible in the list after save (FR14); validation (e.g. non-empty) and inline error follow UX-DR12
+**And** PATCH description and inline-edit behavior are covered by backend tests and frontend integration or E2E tests
 
 ---
 
 ## Epic 6: Accessibility, responsiveness, and quality
 
-User can operate all core actions via keyboard; the interface is self-explanatory without onboarding; the app meets WCAG 2.1 Level AA, works on desktop and mobile with responsive layout and touch-friendly actions, and supports latest major and mobile browsers. Critical journeys and core logic are covered by automated tests.
+User can operate all core actions via keyboard; the interface is self-explanatory without onboarding; the app meets WCAG 2.1 Level AA, works on desktop and mobile with responsive layout and touch-friendly actions, and supports latest major and mobile browsers. (Testing is part of each functional story; see NFR-V1, NFR-V2.)
 
 ### Story 6.1: Design tokens and Direction C visual polish
 
@@ -386,17 +398,3 @@ So that I can use it on any device without mis-taps or cramped controls.
 **Then** the layout is a single fluid column; desktop uses a max-width container (e.g. 480px–560px) centered; mobile uses full-bleed or narrow padding
 **And** Checkbox, delete control, Add button, and Retry have a minimum 44×44px touch target with adequate spacing (FR27, FR28, UX-DR10)
 **And** The app is usable in latest Chrome, Firefox, Safari, Edge and typical mobile browsers
-
-### Story 6.4: E2E and unit test coverage
-
-As a developer,
-I want critical user journeys and core logic covered by automated tests,
-So that regressions are caught before release and changes are safe.
-
-**Acceptance Criteria:**
-
-**Given** the codebase
-**When** I run the test suite
-**Then** Playwright E2E tests cover: open app (loading → empty or list), add task, complete task, delete task, edit task, error state and retry
-**And** Vitest (or equivalent) unit tests cover: backend todo routes (GET, POST, PATCH, DELETE) and validation/error responses; and core client logic (e.g. todo state or API client) where appropriate
-**And** Tests are in the agreed layout (e.g. frontend e2e/, backend tests/ or co-located) (NFR-V1, NFR-V2)
