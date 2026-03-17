@@ -1,0 +1,228 @@
+diff --git a/frontend/e2e/smoke.spec.ts b/frontend/e2e/smoke.spec.ts
+index f4f5bec..c55e859 100644
+--- a/frontend/e2e/smoke.spec.ts
++++ b/frontend/e2e/smoke.spec.ts
+@@ -1,14 +1,21 @@
+ import { test, expect } from '@playwright/test'
+ 
+-test('frontend loads and shows app title', async ({ page }) => {
++test('frontend loads and shows content', async ({ page }) => {
+   await page.goto('/')
+-  await expect(page.getByRole('heading', { name: /aine-training/i })).toBeVisible()
++  // After load we see one of: empty state, task list, or error (with Retry)
++  await expect(
++    page
++      .getByText(/no tasks yet/i)
++      .or(page.getByRole('list'))
++      .or(page.getByRole('button', { name: /retry/i }))
++      .first()
++  ).toBeVisible({ timeout: 10000 })
+ })
+ 
+ test('frontend can reach backend', async ({ page }) => {
+   await page.goto('/')
+-  // Once GET /api/todos completes we show either empty state or list (no longer "Backend: Reachable")
++  // Once GET /api/todos completes we show either empty state or task list
+   await expect(
+-    page.getByText(/no tasks yet|tasks? loaded|aine-training/i).first()
++    page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
+   ).toBeVisible({ timeout: 10000 })
+ })
+diff --git a/frontend/src/App.test.tsx b/frontend/src/App.test.tsx
+index e13c821..874c913 100644
+--- a/frontend/src/App.test.tsx
++++ b/frontend/src/App.test.tsx
+@@ -51,12 +51,33 @@ describe('App', () => {
+     )
+     renderApp()
+     await waitFor(() => {
+-      expect(screen.getByText(/aine-training/)).toBeInTheDocument()
++      expect(screen.getByText('Task one')).toBeInTheDocument()
+     })
+-    expect(screen.getByText('1 task loaded.')).toBeInTheDocument()
++    expect(screen.getByRole('list')).toBeInTheDocument()
++    expect(screen.getByRole('time')).toBeInTheDocument()
++    expect(screen.getByRole('time')).toHaveAttribute('dateTime', '2025-01-01T00:00:00.000Z')
+     expect(screen.queryByText('Loading tasks')).not.toBeInTheDocument()
+   })
+ 
++  it('when useTodos returns one or more tasks, renders list with TaskCards and max-width container', async () => {
++    vi.mocked(fetch).mockResolvedValue(
++      mockJsonResponse(true, [
++        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
++        { id: 2, description: 'Second task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
++      ])
++    )
++    renderApp()
++    await waitFor(() => {
++      expect(screen.getByText('First task')).toBeInTheDocument()
++    })
++    expect(screen.getByText('Second task')).toBeInTheDocument()
++    const list = screen.getByRole('list')
++    expect(list).toBeInTheDocument()
++    const listContainer = list.closest('.max-w-\\[560px\\]')
++    expect(listContainer).toBeInTheDocument()
++    expect(screen.getAllByRole('time')).toHaveLength(2)
++  })
++
+   it('when fetch returns empty array, shows empty state and add affordance and called /api/todos', async () => {
+     const mockFetch = vi.mocked(fetch)
+     mockFetch.mockResolvedValue(mockJsonResponse(true, []))
+@@ -130,8 +151,9 @@ describe('App', () => {
+     const retryButton = screen.getByRole('button', { name: /retry/i })
+     fireEvent.click(retryButton)
+     await waitFor(() => {
+-      expect(screen.getByText('1 task loaded.')).toBeInTheDocument()
++      expect(screen.getByText('Task one')).toBeInTheDocument()
+     })
++    expect(screen.getByRole('list')).toBeInTheDocument()
+     expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
+     expect(callCount).toBe(2)
+   })
+diff --git a/frontend/src/App.tsx b/frontend/src/App.tsx
+index 65f06d8..b2d62ec 100644
+--- a/frontend/src/App.tsx
++++ b/frontend/src/App.tsx
+@@ -2,6 +2,7 @@ import { useTodos } from './hooks/useTodos'
+ import { LoadingState } from './components/LoadingState'
+ import { EmptyState } from './components/EmptyState'
+ import { ErrorState, DEFAULT_ERROR_MESSAGE } from './components/ErrorState'
++import { TaskCard } from './components/TaskCard'
+ 
+ function getErrorMessage(error: unknown): string {
+   if (error instanceof Error) {
+@@ -47,16 +48,14 @@ function App() {
+   }
+ 
+   return (
+-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
+-      <h1 className="text-2xl font-semibold text-gray-900">aine-training</h1>
+-      <p className="mt-2 text-gray-600">Todo list (loaded). Full list UI in later stories.</p>
+-      {data && (
+-        <p className="mt-4 text-sm text-gray-500">
+-          {data.length === 1
+-            ? '1 task loaded.'
+-            : `${data.length} tasks loaded.`}
+-        </p>
+-      )}
++    <main className="min-h-screen flex flex-col">
++      <div className="mx-auto w-full max-w-[560px] p-6">
++        <ul role="list" className="flex flex-col list-none gap-2">
++          {data?.map((todo) => (
++            <TaskCard key={todo.id} todo={todo} />
++          ))}
++        </ul>
++      </div>
++    </main>
++  )
+ }
+ 
+ export default App
+diff --git a/frontend/src/components/TaskCard.tsx b/frontend/src/components/TaskCard.tsx
+new file mode 100644
+index 0000000..66ee184
+--- /dev/null
++++ b/frontend/src/components/TaskCard.tsx
+@@ -0,0 +1,35 @@
++import type { Todo } from '../types/todo'
++
++/** Format ISO 8601 createdAt for display (locale-aware medium date). */
++function formatCreatedAt(createdAt: string): string {
++  return new Date(createdAt).toLocaleDateString(undefined, { dateStyle: 'medium' })
++}
++
++export interface TaskCardProps {
++  todo: Todo
++}
++
++export function TaskCard({ todo }: TaskCardProps) {
++  return (
++    <li className="flex items-center gap-3 rounded-lg border border-[#eee] bg-[#fafafa] px-4 py-3.5">
++      <input
++        type="checkbox"
++        checked={todo.completed}
++        readOnly
++        aria-label={todo.completed ? 'Task completed' : 'Task not completed'}
++        className="h-5 w-5 flex-shrink-0 rounded border-2 border-gray-700"
++      />
++      <span
++        className={`flex-1 text-base ${todo.completed ? 'font-medium text-gray-500 line-through' : 'text-gray-900'}`}
++      >
++        {todo.description}
++      </span>
++      <time
++        dateTime={todo.createdAt}
++        className="text-sm text-gray-500"
++      >
++        {formatCreatedAt(todo.createdAt)}
++      </time>
++    </li>
++  )
++}
+diff --git a/frontend/src/components/TaskCard.test.tsx b/frontend/src/components/TaskCard.test.tsx
+new file mode 100644
+index 0000000..2666013
+--- /dev/null
++++ b/frontend/src/components/TaskCard.test.tsx
+@@ -0,0 +1,61 @@
++import { describe, it, expect } from 'vitest'
++import { render, screen } from '@testing-library/react'
++import { TaskCard } from './TaskCard'
++import type { Todo } from '../types/todo'
++
++const baseTodo: Todo = {
++  id: 1,
++  description: 'Review PRD feedback',
++  completed: false,
++  createdAt: '2026-03-17T12:00:00.000Z',
++}
++
++describe('TaskCard', () => {
++  it('renders description and creation time', () => {
++    render(<TaskCard todo={baseTodo} />)
++    expect(screen.getByText('Review PRD feedback')).toBeInTheDocument()
++    expect(screen.getByRole('time')).toHaveAttribute('dateTime', '2026-03-17T12:00:00.000Z')
++    const timeText = screen.getByRole('time').textContent ?? ''
++    expect(timeText).toMatch(/2026/)
++    expect(timeText).toMatch(/17/)
++  })
++
++  it('shows completed state with strikethrough and muted color when todo.completed is true', () => {
++    render(<TaskCard todo={{ ...baseTodo, completed: true }} />)
++    const description = screen.getByText('Review PRD feedback')
++    expect(description).toHaveClass('line-through')
++    expect(description).toHaveClass('text-gray-500')
++  })
++
++  it('shows unchecked checkbox when todo.completed is false', () => {
++    render(<TaskCard todo={baseTodo} />)
++    const checkbox = screen.getByRole('checkbox', { name: /not completed/i })
++    expect(checkbox).toBeInTheDocument()
++    expect(checkbox).not.toBeChecked()
++  })
++
++  it('shows checked checkbox when todo.completed is true', () => {
++    render(<TaskCard todo={{ ...baseTodo, completed: true }} />)
++    const checkbox = screen.getByRole('checkbox', { name: /completed/i })
++    expect(checkbox).toBeInTheDocument()
++    expect(checkbox).toBeChecked()
++  })
++
++  it('uses card layout with Direction C classes (padding, rounded, border)', () => {
++    const { container } = render(<TaskCard todo={baseTodo} />)
++    const card = container.querySelector('li')
++    expect(card).toBeInTheDocument()
++    expect(card).toHaveClass('rounded-lg')
++    expect(card).toHaveClass('border')
++    expect(card).toHaveClass('border-[#eee]')
++    expect(card).toHaveClass('bg-[#fafafa]')
++    expect(card).toHaveClass('px-4')
++    expect(card).toHaveClass('py-3.5')
++  })
++
++  it('checkbox is read-only', () => {
++    render(<TaskCard todo={baseTodo} />)
++    const checkbox = screen.getByRole('checkbox')
++    expect(checkbox).toHaveAttribute('readOnly')
++  })
++})

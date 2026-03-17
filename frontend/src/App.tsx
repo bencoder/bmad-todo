@@ -2,6 +2,7 @@ import { useTodos } from './hooks/useTodos'
 import { LoadingState } from './components/LoadingState'
 import { EmptyState } from './components/EmptyState'
 import { ErrorState, DEFAULT_ERROR_MESSAGE } from './components/ErrorState'
+import { TaskCard } from './components/TaskCard'
 
 function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
@@ -38,7 +39,7 @@ function App() {
     )
   }
 
-  if (data && Array.isArray(data) && data.length === 0) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     return (
       <main className="min-h-screen flex flex-col">
         <EmptyState />
@@ -47,16 +48,14 @@ function App() {
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-8">
-      <h1 className="text-2xl font-semibold text-gray-900">aine-training</h1>
-      <p className="mt-2 text-gray-600">Todo list (loaded). Full list UI in later stories.</p>
-      {data && (
-        <p className="mt-4 text-sm text-gray-500">
-          {data.length === 1
-            ? '1 task loaded.'
-            : `${data.length} tasks loaded.`}
-        </p>
-      )}
+    <main className="min-h-screen flex flex-col">
+      <div className="mx-auto w-full max-w-[560px] p-6">
+        <ul role="list" className="flex flex-col list-none gap-2">
+          {data.map((todo, index) => (
+            <TaskCard key={todo.id ?? index} todo={todo} />
+          ))}
+        </ul>
+      </div>
     </main>
   )
 }

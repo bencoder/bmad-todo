@@ -51,10 +51,31 @@ describe('App', () => {
     )
     renderApp()
     await waitFor(() => {
-      expect(screen.getByText(/aine-training/)).toBeInTheDocument()
+      expect(screen.getByText('Task one')).toBeInTheDocument()
     })
-    expect(screen.getByText('1 task loaded.')).toBeInTheDocument()
+    expect(screen.getByRole('list')).toBeInTheDocument()
+    expect(screen.getByRole('time')).toBeInTheDocument()
+    expect(screen.getByRole('time')).toHaveAttribute('dateTime', '2025-01-01T00:00:00.000Z')
     expect(screen.queryByText('Loading tasks')).not.toBeInTheDocument()
+  })
+
+  it('when useTodos returns one or more tasks, renders list with TaskCards and max-width container', async () => {
+    vi.mocked(fetch).mockResolvedValue(
+      mockJsonResponse(true, [
+        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+        { id: 2, description: 'Second task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
+      ])
+    )
+    renderApp()
+    await waitFor(() => {
+      expect(screen.getByText('First task')).toBeInTheDocument()
+    })
+    expect(screen.getByText('Second task')).toBeInTheDocument()
+    const list = screen.getByRole('list')
+    expect(list).toBeInTheDocument()
+    const listContainer = list.closest('.max-w-\\[560px\\]')
+    expect(listContainer).toBeInTheDocument()
+    expect(screen.getAllByRole('time')).toHaveLength(2)
   })
 
   it('when fetch returns empty array, shows empty state and add affordance and called /api/todos', async () => {
@@ -130,8 +151,9 @@ describe('App', () => {
     const retryButton = screen.getByRole('button', { name: /retry/i })
     fireEvent.click(retryButton)
     await waitFor(() => {
-      expect(screen.getByText('1 task loaded.')).toBeInTheDocument()
+      expect(screen.getByText('Task one')).toBeInTheDocument()
     })
+    expect(screen.getByRole('list')).toBeInTheDocument()
     expect(screen.queryByText(/unavailable/i)).not.toBeInTheDocument()
     expect(callCount).toBe(2)
   })

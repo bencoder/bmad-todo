@@ -1,14 +1,21 @@
 import { test, expect } from '@playwright/test'
 
-test('frontend loads and shows app title', async ({ page }) => {
+test('frontend loads and shows content', async ({ page }) => {
   await page.goto('/')
-  await expect(page.getByRole('heading', { name: /aine-training/i })).toBeVisible()
+  // After load we see one of: empty state, task list, or error (with Retry)
+  await expect(
+    page
+      .getByText(/no tasks yet/i)
+      .or(page.getByRole('list'))
+      .or(page.getByRole('button', { name: /retry/i }))
+      .first()
+  ).toBeVisible({ timeout: 10000 })
 })
 
 test('frontend can reach backend', async ({ page }) => {
   await page.goto('/')
-  // Once GET /api/todos completes we show either empty state or list (no longer "Backend: Reachable")
+  // Once GET /api/todos completes we show either empty state or task list
   await expect(
-    page.getByText(/no tasks yet|tasks? loaded|aine-training/i).first()
+    page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
   ).toBeVisible({ timeout: 10000 })
 })
