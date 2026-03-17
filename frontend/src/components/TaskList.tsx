@@ -1,4 +1,6 @@
+import { useRef } from 'react'
 import { useTodos } from '../hooks/useTodos'
+import { useCreateTodo } from '../hooks/useCreateTodo'
 import { LoadingState } from './LoadingState'
 import { EmptyState } from './EmptyState'
 import { ErrorState, DEFAULT_ERROR_MESSAGE } from './ErrorState'
@@ -24,6 +26,19 @@ function getErrorMessage(error: unknown): string {
 
 export function TaskList() {
   const { data, isLoading, isError, error, refetch } = useTodos()
+  const { mutateAsync: createTodo, isPending: isCreating, isError: isCreateError, error: createError } = useCreateTodo()
+  const addTaskClearRef = useRef<(() => void) | null>(null)
+
+  const handleAddSubmit = (trimmedDescription: string) => {
+    if (trimmedDescription === '') return
+    createTodo(trimmedDescription)
+      .then(() => addTaskClearRef.current?.())
+      .catch((err) => {
+        console.error('Create task failed:', err)
+      })
+  }
+
+  const createErrorMessage = isCreateError && createError ? getErrorMessage(createError) : undefined
 
   // Loading takes precedence when both isLoading and isError are true (e.g. refetch-after-error).
   if (isLoading) {
@@ -43,18 +58,25 @@ export function TaskList() {
     )
   }
 
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    return <EmptyState />
-  }
-
   return (
     <div className="mx-auto w-full max-w-[560px] p-6">
-      <AddTaskRow />
-      <ul role="list" className="mt-4 flex flex-col list-none gap-2">
-        {data.map((todo, index) => (
-          <TaskCard key={todo.id ?? index} todo={todo} />
-        ))}
-      </ul>
+      <AddTaskRow
+        onSubmit={handleAddSubmit}
+        clearInputRef={addTaskClearRef}
+        error={createErrorMessage}
+        disabled={isCreating}
+      />
+      {!data || !Array.isArray(data) || data.length === 0 ? (
+        <div className="mt-4">
+          <EmptyState />
+        </div>
+      ) : (
+        <ul role="list" className="mt-4 flex flex-col list-none gap-2">
+          {data.map((todo, index) => (
+            <TaskCard key={todo.id ?? index} todo={todo} />
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

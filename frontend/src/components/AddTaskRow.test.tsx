@@ -42,4 +42,28 @@ describe('AddTaskRow', () => {
     fireEvent.submit(form!)
     expect(onSubmit).toHaveBeenCalledWith('New task')
   })
+
+  it('shows inline error when error prop is set', () => {
+    render(<AddTaskRow error="Couldn't add task" />)
+    const alert = screen.getByRole('alert')
+    expect(alert).toHaveTextContent("Couldn't add task")
+  })
+
+  it('clears input when clearInputRef is called after mount', () => {
+    const clearInputRef = { current: null as (() => void) | null }
+    render(<AddTaskRow clearInputRef={clearInputRef} />)
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    fireEvent.change(input, { target: { value: 'Something' } })
+    expect(input).toHaveValue('Something')
+    clearInputRef.current?.()
+    expect(input).toHaveValue('')
+  })
+
+  it('disables input and button when disabled prop is true', () => {
+    render(<AddTaskRow disabled />)
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    const button = screen.getByRole('button', { name: /add/i })
+    expect(input).toBeDisabled()
+    expect(button).toBeDisabled()
+  })
 })

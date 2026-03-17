@@ -1,0 +1,522 @@
+diff --git a/frontend/src/api/todos.test.ts b/frontend/src/api/todos.test.ts
+index 8974440..f5c52a9 100644
+--- a/frontend/src/api/todos.test.ts
++++ b/frontend/src/api/todos.test.ts
+@@ -1,5 +1,5 @@
+ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
+-import { fetchTodos } from './todos'
++import { fetchTodos, createTodo } from './todos'
+ 
+ describe('fetchTodos', () => {
+   beforeEach(() => {
+@@ -50,3 +50,67 @@ describe('fetchTodos', () => {
+     await expect(fetchTodos()).rejects.toThrow('Server error')
+   })
+ })
++
++describe('createTodo', () => {
++  beforeEach(() => {
++    vi.stubGlobal('fetch', vi.fn())
++  })
++  afterEach(() => {
++    vi.unstubAllGlobals()
++  })
++
++  it('POSTs { description } to /api/todos and returns created task', async () => {
++    const created = {
++      id: 1,
++      description: 'New task',
++      completed: false,
++      createdAt: '2026-03-17T12:00:00.000Z',
++    }
++    vi.mocked(fetch).mockResolvedValue({
++      ok: true,
++      status: 201,
++      json: () => Promise.resolve(created),
++    } as Response)
++    const result = await createTodo('New task')
++    expect(result).toEqual(created)
++    expect(fetch).toHaveBeenCalledWith(
++      expect.stringContaining('/api/todos'),
++      expect.objectContaining({
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ description: 'New task' }),
++      }),
++    )
++  })
++
++  it('trims description before sending', async () => {
++    vi.mocked(fetch).mockResolvedValue({
++      ok: true,
++      status: 201,
++      json: () => Promise.resolve({ id: 1, description: 'x', completed: false, createdAt: '' }),
++    } as Response)
++    await createTodo('  x  ')
++    expect(fetch).toHaveBeenCalledWith(
++      expect.any(String),
++      expect.objectContaining({ body: JSON.stringify({ description: 'x' }) }),
++    )
++  })
++
++  it('throws on non-2xx with body.message', async () => {
++    vi.mocked(fetch).mockResolvedValue({
++      ok: false,
++      statusText: 'Bad Request',
++      json: () => Promise.resolve({ code: 'VALIDATION_ERROR', message: 'Description required' }),
++    } as Response)
++    await expect(createTodo('')).rejects.toThrow('Description required')
++  })
++
++  it('throws with statusText when response body has no message', async () => {
++    vi.mocked(fetch).mockResolvedValue({
++      ok: false,
++      statusText: 'Internal Server Error',
++      json: () => Promise.resolve({}),
++    } as Response)
++    await expect(createTodo('x')).rejects.toThrow('Internal Server Error')
++  })
++})
+diff --git a/frontend/src/api/todos.ts b/frontend/src/api/todos.ts
+index b03b83a..0d74c65 100644
+--- a/frontend/src/api/todos.ts
++++ b/frontend/src/api/todos.ts
+@@ -28,3 +28,38 @@ export async function fetchTodos(): Promise<Todo[]> {
+   }
+   return Array.isArray(data) ? data : []
+ }
++
++/**
++ * Creates a todo via POST /api/todos.
++ * Body: { description }. Returns created task (camelCase Todo shape).
++ * Throws on non-2xx with body.message or statusText.
++ */
++export async function createTodo(description: string): Promise<Todo> {
++  const url = getTodosUrl()
++  const res = await fetch(url, {
++    method: 'POST',
++    headers: { 'Content-Type': 'application/json' },
++    body: JSON.stringify({ description: description.trim() }),
++  })
++  if (!res.ok) {
++    const body = await res.json().catch(() => ({}))
++    const message = typeof body?.message === 'string' ? body.message : res.statusText
++    throw new Error(message)
++  }
++  let data: unknown
++  try {
++    data = await res.json()
++  } catch {
++    throw new Error('Invalid response: not JSON')
++  }
++  if (data == null || typeof data !== 'object' || !('id' in data) || !('description' in data)) {
++    throw new Error('Invalid response: expected task object')
++  }
++  const obj = data as Record<string, unknown>
++  return {
++    id: Number(obj.id),
++    description: String(obj.description),
++    completed: Boolean(obj.completed),
++    createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : '',
++  }
++}
+diff --git a/frontend/src/components/AddTaskRow.test.tsx b/frontend/src/components/AddTaskRow.test.tsx
+index a08ae2f..e36a59f 100644
+--- a/frontend/src/components/AddTaskRow.test.tsx
++++ b/frontend/src/components/AddTaskRow.test.tsx
+@@ -42,4 +42,28 @@ describe('AddTaskRow', () => {
+     fireEvent.submit(form!)
+     expect(onSubmit).toHaveBeenCalledWith('New task')
+   })
++
++  it('shows inline error when error prop is set', () => {
++    render(<AddTaskRow error="Couldn't add task" />)
++    const alert = screen.getByRole('alert')
++    expect(alert).toHaveTextContent("Couldn't add task")
++  })
++
++  it('clears input when clearInputRef is called after mount', () => {
++    const clearInputRef = { current: null as (() => void) | null }
++    render(<AddTaskRow clearInputRef={clearInputRef} />)
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    fireEvent.change(input, { target: { value: 'Something' } })
++    expect(input).toHaveValue('Something')
++    clearInputRef.current?.()
++    expect(input).toHaveValue('')
++  })
++
++  it('disables input and button when disabled prop is true', () => {
++    render(<AddTaskRow disabled />)
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    const button = screen.getByRole('button', { name: /add/i })
++    expect(input).toBeDisabled()
++    expect(button).toBeDisabled()
++  })
+ })
+diff --git a/frontend/src/components/AddTaskRow.tsx b/frontend/src/components/AddTaskRow.tsx
+index bfd604d..0bb1e41 100644
+--- a/frontend/src/components/AddTaskRow.tsx
++++ b/frontend/src/components/AddTaskRow.tsx
+@@ -1,4 +1,4 @@
+-import { useRef } from 'react'
++import { useRef, useEffect } from 'react'
+ 
+ /**
+  * AddTaskRow: text input + primary "Add" button at top of list.
+@@ -7,11 +7,28 @@ import { useRef } from 'react'
+ export interface AddTaskRowProps {
+   /** Optional submit handler; no-op in this story. */
+   onSubmit?: (value: string) => void
++  /** Optional ref parent can call after successful add to clear the input. */
++  clearInputRef?: React.MutableRefObject<(() => void) | null>
++  /** Optional inline error message (e.g. from create mutation failure). */
++  error?: string
++  /** Optional: disable input and button while mutation is pending. */
++  disabled?: boolean
+ }
+ 
+-export function AddTaskRow({ onSubmit }: AddTaskRowProps) {
++export function AddTaskRow({ onSubmit, clearInputRef, error, disabled }: AddTaskRowProps) {
+   const inputRef = useRef<HTMLInputElement>(null)
+ 
++  function clearInput() {
++    if (inputRef.current) inputRef.current.value = ''
++  }
++
++  useEffect(() => {
++    if (clearInputRef) clearInputRef.current = clearInput
++    return () => {
++      if (clearInputRef) clearInputRef.current = null
++    }
++  }, [clearInputRef])
++
+   function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+     e.preventDefault()
+     const value = inputRef.current?.value?.trim() ?? ''
+@@ -19,25 +36,37 @@ export function AddTaskRow({ onSubmit }: AddTaskRowProps) {
+   }
+ 
+   return (
+-    <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+-      <label htmlFor="add-task-input" className="sr-only">
+-        Add a task
+-      </label>
+-      <input
+-        ref={inputRef}
+-        id="add-task-input"
+-        type="text"
+-        placeholder="Add a task"
+-        aria-label="Add a task"
+-        className="flex-1 rounded border border-gray-300 px-3 py-2 text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
+-      />
+-      <button
+-        type="submit"
+-        className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600"
+-        aria-label="Add"
+-      >
+-        Add
+-      </button>
+-    </form>
++    <div className="flex flex-col gap-1">
++      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
++        <label htmlFor="add-task-input" className="sr-only">
++          Add a task
++        </label>
++        <input
++          ref={inputRef}
++          id="add-task-input"
++          type="text"
++          placeholder="Add a task"
++          aria-label="Add a task"
++          aria-invalid={error ? 'true' : undefined}
++          aria-describedby={error ? 'add-task-error' : undefined}
++          disabled={disabled}
++          className="flex-1 rounded border border-gray-300 px-3 py-2 text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
++        />
++        <button
++          type="submit"
++          disabled={disabled}
++          aria-label="Add"
++          aria-busy={disabled}
++          className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
++        >
++          Add
++        </button>
++      </form>
++      {error ? (
++        <p id="add-task-error" role="alert" className="text-sm text-red-600">
++          {error}
++        </p>
++      ) : null}
++    </div>
+   )
+ }
+diff --git a/frontend/src/components/TaskList.test.tsx b/frontend/src/components/TaskList.test.tsx
+index 46edea9..0ba2098 100644
+--- a/frontend/src/components/TaskList.test.tsx
++++ b/frontend/src/components/TaskList.test.tsx
+@@ -1,9 +1,23 @@
+ import { describe, it, expect, vi, beforeEach } from 'vitest'
+-import { render, screen } from '@testing-library/react'
++import { render, screen, fireEvent, waitFor } from '@testing-library/react'
++import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+ import { TaskList } from './TaskList'
+ import * as useTodosModule from '../hooks/useTodos'
++import * as useCreateTodoModule from '../hooks/useCreateTodo'
+ 
+ vi.mock('../hooks/useTodos')
++vi.mock('../hooks/useCreateTodo')
++
++function renderTaskList() {
++  const queryClient = new QueryClient({
++    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
++  })
++  return render(
++    <QueryClientProvider client={queryClient}>
++      <TaskList />
++    </QueryClientProvider>,
++  )
++}
+ 
+ describe('TaskList', () => {
+   beforeEach(() => {
+@@ -14,6 +28,13 @@ describe('TaskList', () => {
+       error: null,
+       refetch: vi.fn(() => Promise.resolve()),
+     })
++    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
++      mutate: vi.fn(),
++      mutateAsync: vi.fn().mockResolvedValue(undefined),
++      isPending: false,
++      isError: false,
++      error: null,
++    })
+   })
+ 
+   it('shows LoadingState when isLoading is true', () => {
+@@ -24,7 +45,7 @@ describe('TaskList', () => {
+       error: null,
+       refetch: vi.fn(() => Promise.resolve()),
+     })
+-    render(<TaskList />)
++    renderTaskList()
+     expect(screen.getByText('Loading tasks')).toBeInTheDocument()
+     expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
+   })
+@@ -38,7 +59,7 @@ describe('TaskList', () => {
+       error: new Error('Server error'),
+       refetch,
+     })
+-    render(<TaskList />)
++    renderTaskList()
+     expect(screen.getByText(/server error/i)).toBeInTheDocument()
+     const retryButton = screen.getByRole('button', { name: /retry/i })
+     expect(retryButton).toBeInTheDocument()
+@@ -56,7 +77,7 @@ describe('TaskList', () => {
+       refetch,
+     })
+     expect(() => {
+-      render(<TaskList />)
++      renderTaskList()
+       const retryButton = screen.getByRole('button', { name: /retry/i })
+       retryButton.click()
+     }).not.toThrow()
+@@ -70,8 +91,9 @@ describe('TaskList', () => {
+       error: null,
+       refetch: vi.fn(() => Promise.resolve()),
+     })
+-    render(<TaskList />)
++    renderTaskList()
+     expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
++    expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
+   })
+ 
+   it('shows EmptyState when data is undefined', () => {
+@@ -82,8 +104,9 @@ describe('TaskList', () => {
+       error: null,
+       refetch: vi.fn(() => Promise.resolve()),
+     })
+-    render(<TaskList />)
++    renderTaskList()
+     expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
++    expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
+   })
+ 
+   it('shows list with AddTaskRow and TaskCards when data has items', () => {
+@@ -97,7 +120,7 @@ describe('TaskList', () => {
+       error: null,
+       refetch: vi.fn(() => Promise.resolve()),
+     })
+-    render(<TaskList />)
++    renderTaskList()
+     expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
+     expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
+     expect(screen.getByText('First task')).toBeInTheDocument()
+@@ -106,4 +129,76 @@ describe('TaskList', () => {
+     expect(list).toBeInTheDocument()
+     expect(list.closest('.max-w-\\[560px\\]')).toBeInTheDocument()
+   })
++
++  it('calls create mutation with trimmed description on submit and clears input on success', async () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: [],
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    const mutateAsync = vi.fn().mockResolvedValue(undefined)
++    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
++      mutate: vi.fn(),
++      mutateAsync,
++      isPending: false,
++      isError: false,
++      error: null,
++    })
++    renderTaskList()
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    const form = input.closest('form')
++    fireEvent.change(input, { target: { value: '  New task  ' } })
++    fireEvent.submit(form!)
++    expect(mutateAsync).toHaveBeenCalledWith('New task')
++    await waitFor(() => {
++      expect(input).toHaveValue('')
++    })
++  })
++
++  it('shows inline error when create mutation fails and does not clear input', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: [],
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
++      mutate: vi.fn(),
++      mutateAsync: vi.fn().mockRejectedValue(new Error('Server error')),
++      isPending: false,
++      isError: true,
++      error: new Error('Couldn\'t add task'),
++    })
++    renderTaskList()
++    expect(screen.getByRole('alert')).toHaveTextContent(/couldn't add task/i)
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    expect(input).toBeInTheDocument()
++  })
++
++  it('does not call create when submitted description is empty after trim', () => {
++    vi.mocked(useTodosModule.useTodos).mockReturnValue({
++      data: [],
++      isLoading: false,
++      isError: false,
++      error: null,
++      refetch: vi.fn(() => Promise.resolve()),
++    })
++    const mutateAsync = vi.fn()
++    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
++      mutate: vi.fn(),
++      mutateAsync,
++      isPending: false,
++      isError: false,
++      error: null,
++    })
++    renderTaskList()
++    const input = screen.getByRole('textbox', { name: /add a task/i })
++    const form = input.closest('form')
++    fireEvent.change(input, { target: { value: '   ' } })
++    fireEvent.submit(form!)
++    expect(mutateAsync).not.toHaveBeenCalled()
++  })
+ })
+diff --git a/frontend/src/components/TaskList.tsx b/frontend/src/components/TaskList.tsx
+index 9fb7295..9d68529 100644
+--- a/frontend/src/components/TaskList.tsx
++++ b/frontend/src/components/TaskList.tsx
+@@ -1,4 +1,6 @@
++import { useRef } from 'react'
+ import { useTodos } from '../hooks/useTodos'
++import { useCreateTodo } from '../hooks/useCreateTodo'
+ import { LoadingState } from './LoadingState'
+ import { EmptyState } from './EmptyState'
+ import { ErrorState, DEFAULT_ERROR_MESSAGE } from './ErrorState'
+@@ -24,6 +26,17 @@ function getErrorMessage(error: unknown): string {
+ 
+ export function TaskList() {
+   const { data, isLoading, isError, error, refetch } = useTodos()
++  const { mutateAsync: createTodo, isPending: isCreating, isError: isCreateError, error: createError } = useCreateTodo()
++  const addTaskClearRef = useRef<(() => void) | null>(null)
++
++  const handleAddSubmit = (trimmedDescription: string) => {
++    if (trimmedDescription === '') return
++    createTodo(trimmedDescription)
++      .then(() => addTaskClearRef.current?.())
++      .catch(() => {})
++  }
++
++  const createErrorMessage = isCreateError && createError ? getErrorMessage(createError) : undefined
+ 
+   // Loading takes precedence when both isLoading and isError are true (e.g. refetch-after-error).
+   if (isLoading) {
+@@ -43,18 +56,25 @@ export function TaskList() {
+     )
+   }
+ 
+-  if (!data || !Array.isArray(data) || data.length === 0) {
+-    return <EmptyState />
+-  }
+-
+   return (
+     <div className="mx-auto w-full max-w-[560px] p-6">
+-      <AddTaskRow />
+-      <ul role="list" className="mt-4 flex flex-col list-none gap-2">
+-        {data.map((todo, index) => (
+-          <TaskCard key={todo.id ?? index} todo={todo} />
+-        ))}
+-      </ul>
++      <AddTaskRow
++        onSubmit={handleAddSubmit}
++        clearInputRef={addTaskClearRef}
++        error={createErrorMessage}
++        disabled={isCreating}
++      />
++      {!data || !Array.isArray(data) || data.length === 0 ? (
++        <div className="mt-4">
++          <EmptyState />
++        </div>
++      ) : (
++        <ul role="list" className="mt-4 flex flex-col list-none gap-2">
++          {data.map((todo, index) => (
++            <TaskCard key={todo.id ?? index} todo={todo} />
++          ))}
++        </ul>
++      )}
+     </div>
+   )
+ }
+diff --git a/frontend/src/hooks/useCreateTodo.ts b/frontend/src/hooks/useCreateTodo.ts
+new file mode 100644
+index 0000000..4ecbbd3
+--- /dev/null
++++ b/frontend/src/hooks/useCreateTodo.ts
+@@ -0,0 +1,20 @@
++import { useMutation, useQueryClient } from '@tanstack/react-query'
++import { createTodo } from '../api/todos.js'
++import { todosQueryKey } from './useTodos.js'
++
++export function useCreateTodo() {
++  const queryClient = useQueryClient()
++  const mutation = useMutation({
++    mutationFn: (description: string) => createTodo(description),
++    onSuccess: () => {
++      queryClient.invalidateQueries({ queryKey: todosQueryKey })
++    },
++  })
++  return {
++    mutate: mutation.mutate,
++    mutateAsync: mutation.mutateAsync,
++    isPending: mutation.isPending,
++    isError: mutation.isError,
++    error: mutation.error,
++  }
++}

@@ -1,9 +1,23 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TaskList } from './TaskList'
 import * as useTodosModule from '../hooks/useTodos'
+import * as useCreateTodoModule from '../hooks/useCreateTodo'
 
 vi.mock('../hooks/useTodos')
+vi.mock('../hooks/useCreateTodo')
+
+function renderTaskList() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  })
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <TaskList />
+    </QueryClientProvider>,
+  )
+}
 
 describe('TaskList', () => {
   beforeEach(() => {
@@ -13,6 +27,13 @@ describe('TaskList', () => {
       isError: false,
       error: null,
       refetch: vi.fn(() => Promise.resolve()),
+    })
+    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
     })
   })
 
@@ -24,7 +45,7 @@ describe('TaskList', () => {
       error: null,
       refetch: vi.fn(() => Promise.resolve()),
     })
-    render(<TaskList />)
+    renderTaskList()
     expect(screen.getByText('Loading tasks')).toBeInTheDocument()
     expect(document.querySelector('[aria-busy="true"]')).toBeInTheDocument()
   })
@@ -38,7 +59,7 @@ describe('TaskList', () => {
       error: new Error('Server error'),
       refetch,
     })
-    render(<TaskList />)
+    renderTaskList()
     expect(screen.getByText(/server error/i)).toBeInTheDocument()
     const retryButton = screen.getByRole('button', { name: /retry/i })
     expect(retryButton).toBeInTheDocument()
@@ -56,7 +77,7 @@ describe('TaskList', () => {
       refetch,
     })
     expect(() => {
-      render(<TaskList />)
+      renderTaskList()
       const retryButton = screen.getByRole('button', { name: /retry/i })
       retryButton.click()
     }).not.toThrow()
@@ -70,8 +91,9 @@ describe('TaskList', () => {
       error: null,
       refetch: vi.fn(() => Promise.resolve()),
     })
-    render(<TaskList />)
+    renderTaskList()
     expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
   })
 
   it('shows EmptyState when data is undefined', () => {
@@ -82,8 +104,9 @@ describe('TaskList', () => {
       error: null,
       refetch: vi.fn(() => Promise.resolve()),
     })
-    render(<TaskList />)
+    renderTaskList()
     expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
+    expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
   })
 
   it('shows list with AddTaskRow and TaskCards when data has items', () => {
@@ -97,7 +120,7 @@ describe('TaskList', () => {
       error: null,
       refetch: vi.fn(() => Promise.resolve()),
     })
-    render(<TaskList />)
+    renderTaskList()
     expect(screen.getByPlaceholderText('Add a task')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: /add/i })).toBeInTheDocument()
     expect(screen.getByText('First task')).toBeInTheDocument()
@@ -105,5 +128,96 @@ describe('TaskList', () => {
     const list = screen.getByRole('list')
     expect(list).toBeInTheDocument()
     expect(list.closest('.max-w-\\[560px\\]')).toBeInTheDocument()
+  })
+
+  it('calls create mutation with trimmed description on submit and clears input on success', async () => {
+    const initialData: Array<{ id: number; description: string; completed: boolean; createdAt: string }> = []
+    const refetch = vi.fn(() => Promise.resolve())
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: initialData,
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch,
+    })
+    const mutateAsync = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync,
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    const form = input.closest('form')
+    fireEvent.change(input, { target: { value: '  New task  ' } })
+    fireEvent.submit(form!)
+    expect(mutateAsync).toHaveBeenCalledWith('New task')
+    await waitFor(() => {
+      expect(input).toHaveValue('')
+    })
+    // After success, list would refetch; simulate list including the new task
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [{ id: 99, description: 'New task', completed: false, createdAt: '2026-03-17T12:00:00.000Z' }],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch,
+    })
+    renderTaskList()
+    expect(screen.getByText('New task')).toBeInTheDocument()
+  })
+
+  it('shows inline error when create mutation fails and does not clear input', async () => {
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    const mutateAsync = vi.fn().mockRejectedValue(new Error('Server error'))
+    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync,
+      isPending: false,
+      isError: true,
+      error: new Error('Couldn\'t add task'),
+    })
+    renderTaskList()
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    fireEvent.change(input, { target: { value: 'My task' } })
+    expect(input).toHaveValue('My task')
+    const form = input.closest('form')
+    fireEvent.submit(form!)
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/couldn't add task/i)
+    })
+    expect(input).toHaveValue('My task')
+  })
+
+  it('does not call create when submitted description is empty after trim', () => {
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    const mutateAsync = vi.fn()
+    vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync,
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    const form = input.closest('form')
+    fireEvent.change(input, { target: { value: '   ' } })
+    fireEvent.submit(form!)
+    expect(mutateAsync).not.toHaveBeenCalled()
   })
 })

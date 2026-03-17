@@ -28,3 +28,46 @@ export async function fetchTodos(): Promise<Todo[]> {
   }
   return Array.isArray(data) ? data : []
 }
+
+/**
+ * Creates a todo via POST /api/todos.
+ * Body: { description }. Returns created task (camelCase Todo shape).
+ * Throws on non-2xx with body.message or statusText.
+ */
+export async function createTodo(description: string): Promise<Todo> {
+  const desc = typeof description === 'string' ? description.trim() : ''
+  if (desc === '') {
+    throw new Error('Description required')
+  }
+  const url = getTodosUrl()
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ description: desc }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const message = typeof body?.message === 'string' ? body.message : res.statusText
+    throw new Error(message)
+  }
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error('Invalid response: not JSON')
+  }
+  if (data == null || typeof data !== 'object' || !('id' in data) || !('description' in data)) {
+    throw new Error('Invalid response: expected task object')
+  }
+  const obj = data as Record<string, unknown>
+  const id = Number(obj.id)
+  if (Number.isNaN(id) || id < 0) {
+    throw new Error('Invalid response: id must be a non-negative number')
+  }
+  return {
+    id,
+    description: String(obj.description),
+    completed: Boolean(obj.completed),
+    createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : '',
+  }
+}
