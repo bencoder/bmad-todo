@@ -292,6 +292,85 @@ test('PATCH /api/todos/:id returns 400 for non-boolean completed', async () => {
   await app.close()
 })
 
+test('PATCH /api/todos/:id with description returns 200 and updated task', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Original text' },
+  })
+  assert.strictEqual(createRes.statusCode, 201)
+  const created = createRes.json()
+  const id = created.id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { description: 'new text' },
+  })
+  assert.strictEqual(res.statusCode, 200)
+  const body = res.json()
+  assert.strictEqual(body.id, id)
+  assert.strictEqual(body.description, 'new text')
+  assert.strictEqual(body.completed, false)
+  assert.strictEqual(typeof body.createdAt, 'string')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].description, 'new text')
+  await app.close()
+})
+
+test('PATCH /api/todos/:id with description and completed updates both', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task to update' },
+  })
+  assert.strictEqual(createRes.statusCode, 201)
+  const created = createRes.json()
+  const id = created.id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { description: 'Updated description', completed: true },
+  })
+  assert.strictEqual(res.statusCode, 200)
+  const body = res.json()
+  assert.strictEqual(body.id, id)
+  assert.strictEqual(body.description, 'Updated description')
+  assert.strictEqual(body.completed, true)
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].description, 'Updated description')
+  assert.strictEqual(list[0].completed, true)
+  await app.close()
+})
+
+test('PATCH /api/todos/:id with empty or whitespace-only description returns 400', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task' },
+  })
+  const id = createRes.json().id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { description: '   \t  ' },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.ok(/description|min|string/i.test(body.message), 'message should mention validation reason')
+  await app.close()
+})
+
 test('DELETE /api/todos/:id returns 204 and removes task', async () => {
   const app = await buildApp()
   await app.db.delete(tasks)

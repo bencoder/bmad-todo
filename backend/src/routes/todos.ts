@@ -8,6 +8,7 @@ import {
   taskListResponseSchema,
   taskResponseSchema,
   updateTaskRequestBodySchema,
+  validationErrorResponseSchema,
 } from '../schemas/todos.schema.js'
 
 type CreateTaskBody = z.infer<typeof createTaskRequestBodySchema>
@@ -70,18 +71,25 @@ async function todosRoutes(app: FastifyInstance) {
       body: updateTaskRequestBodySchema,
       response: {
         200: taskResponseSchema,
+        400: validationErrorResponseSchema,
         404: notFoundResponseSchema,
       },
     },
   }, async (request, reply) => {
     const { id } = request.params as { id: number }
     const body = request.body as UpdateTaskBody
-    const { completed } = body
+    const { completed, description } = body
+    if (completed === undefined && description === undefined) {
+      return reply.status(400).send({ code: 'VALIDATION_ERROR', message: 'At least one of completed or description is required' })
+    }
+    const updates: { completed?: boolean; description?: string } = {}
+    if (description !== undefined) updates.description = description
+    if (completed !== undefined) updates.completed = completed
     const [row] = await app.db.select().from(tasks).where(eq(tasks.id, id))
     if (!row) {
       return reply.status(404).send({ code: 'NOT_FOUND', message: 'Task not found' })
     }
-    const [updated] = await app.db.update(tasks).set({ completed }).where(eq(tasks.id, id)).returning()
+    const [updated] = await app.db.update(tasks).set(updates).where(eq(tasks.id, id)).returning()
     if (!updated) {
       const err = new Error('Update did not return row') as Error & { code?: string; statusCode?: number }
       err.code = 'INTERNAL_ERROR'
@@ -99,6 +107,7 @@ async function todosRoutes(app: FastifyInstance) {
     schema: {
       params: idParamSchema,
       response: {
+        204: z.undefined(),
         404: notFoundResponseSchema,
       },
     },

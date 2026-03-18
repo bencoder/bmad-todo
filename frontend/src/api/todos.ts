@@ -73,17 +73,27 @@ export async function createTodo(description: string): Promise<Todo> {
 }
 
 /**
- * Updates a todo's completed state via PATCH /api/todos/:id.
- * Body: { completed }. Returns updated task (camelCase Todo shape).
+ * Updates a todo via PATCH /api/todos/:id.
+ * Payload: { completed?: boolean; description?: string }. Only present fields are sent.
+ * Returns updated task (camelCase Todo shape).
  * Throws on non-2xx with body.message or statusText.
  */
-export async function updateTodo(id: number, payload: { completed: boolean }): Promise<Todo> {
+export async function updateTodo(
+  id: number,
+  payload: { completed?: boolean; description?: string },
+): Promise<Todo> {
+  const body: Record<string, boolean | string> = {}
+  if (payload.completed !== undefined) body.completed = payload.completed
+  if (payload.description !== undefined) body.description = payload.description
+  if (Object.keys(body).length === 0) {
+    throw new Error('At least one of completed or description is required')
+  }
   const base = getTodosUrl()
   const url = `${base}/${id}`
   const res = await fetch(url, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ completed: payload.completed }),
+    body: JSON.stringify(body),
   })
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))

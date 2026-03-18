@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { render, screen, fireEvent } from '@testing-library/react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { TaskCard } from './TaskCard'
 import type { Todo } from '../types/todo'
 
@@ -22,7 +22,7 @@ describe('TaskCard', () => {
 
   it('shows completed state with strikethrough and muted color when todo.completed is true', () => {
     render(<TaskCard todo={{ ...baseTodo, completed: true }} />)
-    const description = screen.getByText('Review PRD feedback')
+    const description = screen.getByRole('button', { name: /edit task: review prd feedback/i })
     expect(description).toHaveClass('line-through')
     expect(description).toHaveClass('text-gray-500')
   })
@@ -102,5 +102,61 @@ describe('TaskCard', () => {
     fireEvent.click(btn)
     expect(onDelete).toHaveBeenCalledTimes(1)
     expect(onDelete).toHaveBeenCalledWith(1)
+  })
+
+  describe('inline edit', () => {
+    it('when not editing shows focusable label that calls onStartEdit on click', () => {
+      const onStartEdit = vi.fn()
+      render(<TaskCard todo={baseTodo} onStartEdit={onStartEdit} />)
+      const editTrigger = screen.getByRole('button', { name: /edit task: review prd feedback/i })
+      expect(editTrigger).toBeInTheDocument()
+      fireEvent.click(editTrigger)
+      expect(onStartEdit).toHaveBeenCalledTimes(1)
+      expect(onStartEdit).toHaveBeenCalledWith(1)
+    })
+
+    it('when isEditing is true renders input with current description', () => {
+      render(<TaskCard todo={baseTodo} isEditing />)
+      const input = screen.getByRole('textbox', { name: /edit task description/i })
+      expect(input).toBeInTheDocument()
+      expect(input).toHaveValue('Review PRD feedback')
+    })
+
+    it('when editing, Enter calls onSaveEdit with id and trimmed text', () => {
+      const onSaveEdit = vi.fn()
+      render(<TaskCard todo={baseTodo} isEditing onSaveEdit={onSaveEdit} />)
+      const input = screen.getByRole('textbox', { name: /edit task description/i })
+      fireEvent.change(input, { target: { value: '  new text  ' } })
+      fireEvent.keyDown(input, { key: 'Enter' })
+      expect(onSaveEdit).toHaveBeenCalledTimes(1)
+      expect(onSaveEdit).toHaveBeenCalledWith(1, 'new text')
+    })
+
+    it('when editing, blur calls onSaveEdit with id and trimmed text', async () => {
+      const onSaveEdit = vi.fn()
+      render(<TaskCard todo={baseTodo} isEditing onSaveEdit={onSaveEdit} />)
+      const input = screen.getByRole('textbox', { name: /edit task description/i })
+      fireEvent.change(input, { target: { value: '  saved on blur  ' } })
+      fireEvent.blur(input)
+      await waitFor(() => {
+        expect(onSaveEdit).toHaveBeenCalledWith(1, 'saved on blur')
+      })
+    })
+
+    it('when editing, Escape calls onCancelEdit with id', () => {
+      const onCancelEdit = vi.fn()
+      render(<TaskCard todo={baseTodo} isEditing onCancelEdit={onCancelEdit} />)
+      const input = screen.getByRole('textbox', { name: /edit task description/i })
+      fireEvent.keyDown(input, { key: 'Escape' })
+      expect(onCancelEdit).toHaveBeenCalledTimes(1)
+      expect(onCancelEdit).toHaveBeenCalledWith(1)
+    })
+
+    it('when editing and editError provided, shows inline error', () => {
+      render(<TaskCard todo={baseTodo} isEditing editError="Description required" />)
+      expect(screen.getByRole('alert')).toHaveTextContent('Description required')
+      const input = screen.getByRole('textbox', { name: /edit task description/i })
+      expect(input).toHaveAttribute('aria-invalid', 'true')
+    })
   })
 })

@@ -1,4 +1,4 @@
-import { useRef } from 'react'
+import { useRef, useState } from 'react'
 import { useTodos } from '../hooks/useTodos'
 import { useCreateTodo } from '../hooks/useCreateTodo'
 import { useUpdateTodo } from '../hooks/useUpdateTodo'
@@ -29,9 +29,11 @@ function getErrorMessage(error: unknown): string {
 export function TaskList() {
   const { data, isLoading, isError, error, refetch } = useTodos()
   const { mutateAsync: createTodo, isPending: isCreating, isError: isCreateError, error: createError } = useCreateTodo()
-  const { mutate: updateTodo } = useUpdateTodo()
+  const { mutateAsync: updateTodoAsync, mutate: updateTodo } = useUpdateTodo()
   const { mutate: deleteTodo } = useDeleteTodo()
   const addTaskClearRef = useRef<(() => void) | null>(null)
+  const [editingId, setEditingId] = useState<number | null>(null)
+  const [editError, setEditError] = useState<string | null>(null)
 
   const handleToggleComplete = (id: number, completed: boolean) => {
     updateTodo({ id, completed })
@@ -39,6 +41,32 @@ export function TaskList() {
 
   const handleDelete = (id: number) => {
     deleteTodo(id)
+  }
+
+  const handleStartEdit = (id: number) => {
+    setEditError(null)
+    setEditingId(id)
+  }
+
+  const handleSaveEdit = (id: number, description: string) => {
+    const trimmed = description.trim()
+    if (trimmed === '') {
+      setEditError('Description required')
+      return
+    }
+    setEditError(null)
+    updateTodoAsync({ id, description: trimmed })
+      .then(() => {
+        setEditingId(null)
+      })
+      .catch((err) => {
+        setEditError(getErrorMessage(err))
+      })
+  }
+
+  const handleCancelEdit = () => {
+    setEditingId(null)
+    setEditError(null)
   }
 
   const handleAddSubmit = (trimmedDescription: string) => {
@@ -90,6 +118,11 @@ export function TaskList() {
               todo={todo}
               onToggleComplete={handleToggleComplete}
               onDelete={handleDelete}
+              isEditing={editingId === todo.id}
+              onStartEdit={handleStartEdit}
+              onSaveEdit={handleSaveEdit}
+              onCancelEdit={handleCancelEdit}
+              editError={editingId === todo.id ? editError ?? undefined : undefined}
             />
           ))}
         </ul>

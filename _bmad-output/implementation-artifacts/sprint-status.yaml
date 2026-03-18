@@ -36,7 +36,7 @@
 
 generated: "2026-03-17"
 last_updated: "2026-03-18"
-# (story 4-2 review)
+# (story 5-1 review)
 project: aine-training
 project_key: NOKEY
 tracking_system: file-system
@@ -62,8 +62,8 @@ development_status:
   4-1-complete-task-api-and-checkbox-toggle: review
   4-2-delete-task-api-and-delete-control: review
   epic-4-retrospective: optional
-  epic-5: backlog
-  5-1-edit-task-api-and-inline-edit-in-taskcard: backlog
+  epic-5: in-progress
+  5-1-edit-task-api-and-inline-edit-in-taskcard: review
   epic-5-retrospective: optional
   epic-6: backlog
   6-1-design-tokens-and-direction-c-visual-polish: backlog

@@ -58,9 +58,98 @@ test.describe('marking tasks complete', () => {
     await patchPromise
     await getAfterPatchPromise
 
-    // Task shows as completed: checkbox checked and description has strikethrough
+    // Task shows as completed: checkbox checked and description has strikethrough (description is in edit-trigger button)
     await expect(checkbox).toBeChecked()
-    await expect(listItem.locator('span')).toHaveClass(/line-through/)
+    const descriptionButton = listItem.getByRole('button', {
+      name: new RegExp(`edit task: ${taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i'),
+    })
+    await expect(descriptionButton).toHaveClass(/line-through/)
+  })
+})
+
+test.describe('editing tasks', () => {
+  test('user can edit a task description and save with Enter', async ({ page }) => {
+    await page.goto('/')
+    await expect(
+      page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    const taskDescription = `E2E edit ${Date.now()}`
+    await page.getByRole('textbox', { name: /add a task/i }).fill(taskDescription)
+    await page.getByRole('button', { name: /^add$/i }).click()
+    await expect(page.getByText(taskDescription)).toBeVisible({ timeout: 5000 })
+
+    const listItem = page.getByRole('listitem').filter({ hasText: taskDescription })
+    const editTrigger = listItem.getByRole('button', { name: new RegExp(`edit task: ${taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') })
+    await editTrigger.click()
+
+    const newText = 'Updated by E2E'
+    const editInput = page.getByRole('textbox', { name: /edit task description/i })
+    await expect(editInput).toBeVisible({ timeout: 3000 })
+    await editInput.fill(newText)
+
+    const patchPromise = page.waitForResponse(
+      (res) => res.url().includes('/api/todos/') && res.request().method() === 'PATCH' && res.status() === 200,
+      { timeout: 10000 }
+    )
+    await editInput.press('Enter')
+    await patchPromise
+
+    await expect(page.getByText(newText)).toBeVisible({ timeout: 5000 })
+    await expect(page.getByText(taskDescription)).not.toBeVisible()
+  })
+
+  test('user can cancel edit with Escape and list is unchanged', async ({ page }) => {
+    await page.goto('/')
+    await expect(
+      page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    const taskDescription = `E2E cancel ${Date.now()}`
+    await page.getByRole('textbox', { name: /add a task/i }).fill(taskDescription)
+    await page.getByRole('button', { name: /^add$/i }).click()
+    await expect(page.getByText(taskDescription)).toBeVisible({ timeout: 5000 })
+
+    const listItem = page.getByRole('listitem').filter({ hasText: taskDescription })
+    const editTrigger = listItem.getByRole('button', { name: new RegExp(`edit task: ${taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') })
+    await editTrigger.click()
+
+    const editInput = page.getByRole('textbox', { name: /edit task description/i })
+    await expect(editInput).toBeVisible({ timeout: 3000 })
+    await editInput.fill('This should not save')
+
+    let patchCount = 0
+    page.on('response', (res) => {
+      if (res.url().includes('/api/todos/') && res.request().method() === 'PATCH') patchCount++
+    })
+    await editInput.press('Escape')
+
+    await expect(page.getByText(taskDescription)).toBeVisible({ timeout: 3000 })
+    expect(patchCount).toBe(0)
+  })
+
+  test('saving with empty description shows inline error and stays in edit mode', async ({ page }) => {
+    await page.goto('/')
+    await expect(
+      page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    const taskDescription = `E2E empty ${Date.now()}`
+    await page.getByRole('textbox', { name: /add a task/i }).fill(taskDescription)
+    await page.getByRole('button', { name: /^add$/i }).click()
+    await expect(page.getByText(taskDescription)).toBeVisible({ timeout: 5000 })
+
+    const listItem = page.getByRole('listitem').filter({ hasText: taskDescription })
+    const editTrigger = listItem.getByRole('button', { name: new RegExp(`edit task: ${taskDescription.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'i') })
+    await editTrigger.click()
+
+    const editInput = page.getByRole('textbox', { name: /edit task description/i })
+    await expect(editInput).toBeVisible({ timeout: 3000 })
+    await editInput.fill('   ')
+    await editInput.blur()
+
+    await expect(page.getByText(/description required/i)).toBeVisible({ timeout: 3000 })
+    await expect(editInput).toBeVisible()
   })
 })
 

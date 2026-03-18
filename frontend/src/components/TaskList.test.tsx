@@ -316,4 +316,96 @@ describe('TaskList', () => {
     fireEvent.submit(form!)
     expect(mutateAsync).not.toHaveBeenCalled()
   })
+
+  it('only one task in edit mode at a time: starting edit on second exits first', async () => {
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+        { id: 2, description: 'Second task', completed: false, createdAt: '2026-03-17T11:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    renderTaskList()
+    const firstEdit = screen.getByRole('button', { name: /edit task: first task/i })
+    fireEvent.click(firstEdit)
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /edit task description/i })).toHaveValue('First task')
+    })
+    const secondEdit = screen.getByRole('button', { name: /edit task: second task/i })
+    fireEvent.click(secondEdit)
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /edit task description/i })).toHaveValue('Second task')
+    })
+    expect(screen.getAllByRole('textbox', { name: /edit task description/i })).toHaveLength(1)
+  })
+
+  it('saving edit calls updateTodoAsync with id and description and clears edit mode on success', async () => {
+    const updateMutateAsync = vi.fn().mockResolvedValue(undefined)
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'Original', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: updateMutateAsync,
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    fireEvent.click(screen.getByRole('button', { name: /edit task: original/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /edit task description/i })).toBeInTheDocument()
+    })
+    const input = screen.getByRole('textbox', { name: /edit task description/i })
+    fireEvent.change(input, { target: { value: 'Updated text' } })
+    input.blur()
+    await waitFor(() => {
+      expect(updateMutateAsync).toHaveBeenCalledWith({ id: 1, description: 'Updated text' })
+    })
+    await waitFor(() => {
+      expect(screen.queryByRole('textbox', { name: /edit task description/i })).not.toBeInTheDocument()
+    })
+  })
+
+  it('empty save shows inline error and stays in edit mode', async () => {
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'Some task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    const updateMutateAsync = vi.fn()
+    vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: updateMutateAsync,
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    fireEvent.click(screen.getByRole('button', { name: /edit task: some task/i }))
+    await waitFor(() => {
+      expect(screen.getByRole('textbox', { name: /edit task description/i })).toBeInTheDocument()
+    })
+    const input = screen.getByRole('textbox', { name: /edit task description/i })
+    fireEvent.change(input, { target: { value: '   ' } })
+    input.blur()
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/description required/i)
+    })
+    expect(updateMutateAsync).not.toHaveBeenCalled()
+    expect(screen.getByRole('textbox', { name: /edit task description/i })).toBeInTheDocument()
+  })
 })

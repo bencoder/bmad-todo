@@ -5,8 +5,20 @@ import { todosQueryKey } from './useTodos.js'
 export function useUpdateTodo() {
   const queryClient = useQueryClient()
   const mutation = useMutation({
-    mutationFn: ({ id, completed }: { id: number; completed: boolean }) =>
-      updateTodo(id, { completed }),
+    mutationFn: ({
+      id,
+      completed,
+      description,
+    }: {
+      id: number
+      completed?: boolean
+      description?: string
+    }) => {
+      const payload: { completed?: boolean; description?: string } = {}
+      if (completed !== undefined) payload.completed = completed
+      if (description !== undefined) payload.description = description
+      return updateTodo(id, payload)
+    },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: todosQueryKey })
     },
