@@ -291,3 +291,44 @@ test('PATCH /api/todos/:id returns 400 for non-boolean completed', async () => {
   assert.strictEqual(body.code, 'VALIDATION_ERROR')
   await app.close()
 })
+
+test('DELETE /api/todos/:id returns 204 and removes task', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task to delete' },
+  })
+  assert.strictEqual(createRes.statusCode, 201)
+  const created = createRes.json()
+  const id = created.id
+  const res = await app.inject({ method: 'DELETE', url: `/api/todos/${id}` })
+  assert.strictEqual(res.statusCode, 204)
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 0)
+  await app.close()
+})
+
+test('DELETE /api/todos/:id returns 404 for non-existent id', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({ method: 'DELETE', url: '/api/todos/99999' })
+  assert.strictEqual(res.statusCode, 404)
+  const body = res.json()
+  assert.strictEqual(body.code, 'NOT_FOUND')
+  assert.strictEqual(body.message, 'Task not found')
+  await app.close()
+})
+
+test('DELETE /api/todos/:id returns 400 for invalid id', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({ method: 'DELETE', url: '/api/todos/0' })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.ok(/id|integer|positive/i.test(body.message), 'message should mention id or validation')
+  await app.close()
+})

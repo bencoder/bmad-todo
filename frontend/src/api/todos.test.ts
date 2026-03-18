@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchTodos, createTodo, updateTodo } from './todos'
+import { fetchTodos, createTodo, updateTodo, deleteTodo } from './todos'
 
 describe('fetchTodos', () => {
   beforeEach(() => {
@@ -163,5 +163,44 @@ describe('updateTodo', () => {
       json: () => Promise.resolve({}),
     } as Response)
     await expect(updateTodo(1, { completed: false })).rejects.toThrow('Internal Server Error')
+  })
+})
+
+describe('deleteTodo', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('sends DELETE to /api/todos/:id and returns void on 204', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      status: 204,
+    } as Response)
+    await deleteTodo(1)
+    expect(fetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/todos\/1$/), {
+      method: 'DELETE',
+    })
+  })
+
+  it('throws on 404 with body.message', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ code: 'NOT_FOUND', message: 'Task not found' }),
+    } as Response)
+    await expect(deleteTodo(99999)).rejects.toThrow('Task not found')
+  })
+
+  it('throws on non-2xx with statusText when body has no message', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 500,
+      statusText: 'Internal Server Error',
+      json: () => Promise.resolve({}),
+    } as Response)
+    await expect(deleteTodo(1)).rejects.toThrow('Internal Server Error')
   })
 })

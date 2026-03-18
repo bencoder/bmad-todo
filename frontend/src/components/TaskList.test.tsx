@@ -5,10 +5,12 @@ import { TaskList } from './TaskList'
 import * as useTodosModule from '../hooks/useTodos'
 import * as useCreateTodoModule from '../hooks/useCreateTodo'
 import * as useUpdateTodoModule from '../hooks/useUpdateTodo'
+import * as useDeleteTodoModule from '../hooks/useDeleteTodo'
 
 vi.mock('../hooks/useTodos')
 vi.mock('../hooks/useCreateTodo')
 vi.mock('../hooks/useUpdateTodo')
+vi.mock('../hooks/useDeleteTodo')
 
 function renderTaskList() {
   const queryClient = new QueryClient({
@@ -38,6 +40,13 @@ describe('TaskList', () => {
       error: null,
     })
     vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    vi.mocked(useDeleteTodoModule.useDeleteTodo).mockReturnValue({
       mutate: vi.fn(),
       mutateAsync: vi.fn().mockResolvedValue(undefined),
       isPending: false,
@@ -255,6 +264,33 @@ describe('TaskList', () => {
     const checkbox = screen.getByRole('checkbox', { name: /mark task active/i })
     fireEvent.click(checkbox)
     expect(updateMutate).toHaveBeenCalledWith({ id: 2, completed: false })
+  })
+
+  it('calls delete mutation with task id when delete button is clicked', () => {
+    const deleteMutate = vi.fn()
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+        { id: 2, description: 'Second task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    vi.mocked(useDeleteTodoModule.useDeleteTodo).mockReturnValue({
+      mutate: deleteMutate,
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    const deleteButtons = screen.getAllByRole('button', { name: /delete task/i })
+    expect(deleteButtons).toHaveLength(2)
+    fireEvent.click(deleteButtons[1])
+    expect(deleteMutate).toHaveBeenCalledTimes(1)
+    expect(deleteMutate).toHaveBeenCalledWith(2)
   })
 
   it('does not call create when submitted description is empty after trim', () => {

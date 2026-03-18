@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import { useTodos } from '../hooks/useTodos'
 import { useCreateTodo } from '../hooks/useCreateTodo'
 import { useUpdateTodo } from '../hooks/useUpdateTodo'
+import { useDeleteTodo } from '../hooks/useDeleteTodo'
 import { LoadingState } from './LoadingState'
 import { EmptyState } from './EmptyState'
 import { ErrorState, DEFAULT_ERROR_MESSAGE } from './ErrorState'
@@ -28,11 +29,16 @@ function getErrorMessage(error: unknown): string {
 export function TaskList() {
   const { data, isLoading, isError, error, refetch } = useTodos()
   const { mutateAsync: createTodo, isPending: isCreating, isError: isCreateError, error: createError } = useCreateTodo()
-  const { mutate: updateTodo, isPending: isUpdating } = useUpdateTodo()
+  const { mutate: updateTodo } = useUpdateTodo()
+  const { mutate: deleteTodo } = useDeleteTodo()
   const addTaskClearRef = useRef<(() => void) | null>(null)
 
   const handleToggleComplete = (id: number, completed: boolean) => {
     updateTodo({ id, completed })
+  }
+
+  const handleDelete = (id: number) => {
+    deleteTodo(id)
   }
 
   const handleAddSubmit = (trimmedDescription: string) => {
@@ -83,6 +89,7 @@ export function TaskList() {
               key={todo.id ?? index}
               todo={todo}
               onToggleComplete={handleToggleComplete}
+              onDelete={handleDelete}
             />
           ))}
         </ul>

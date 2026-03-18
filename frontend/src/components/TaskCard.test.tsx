@@ -82,4 +82,25 @@ describe('TaskCard', () => {
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).not.toHaveAttribute('readOnly')
   })
+
+  it('does not show delete button when onDelete is not provided', () => {
+    render(<TaskCard todo={baseTodo} />)
+    expect(screen.queryByRole('button', { name: /delete task/i })).not.toBeInTheDocument()
+  })
+
+  it('shows delete button with aria-label "Delete task" when onDelete is provided', () => {
+    render(<TaskCard todo={baseTodo} onDelete={() => {}} />)
+    const btn = screen.getByRole('button', { name: /delete task/i })
+    expect(btn).toBeInTheDocument()
+    expect(btn).toHaveAttribute('aria-label', 'Delete task')
+  })
+
+  it('calls onDelete with todo.id when delete button is clicked', () => {
+    const onDelete = vi.fn()
+    render(<TaskCard todo={baseTodo} onDelete={onDelete} />)
+    const btn = screen.getByRole('button', { name: /delete task/i })
+    fireEvent.click(btn)
+    expect(onDelete).toHaveBeenCalledTimes(1)
+    expect(onDelete).toHaveBeenCalledWith(1)
+  })
 })

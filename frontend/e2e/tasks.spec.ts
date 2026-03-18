@@ -63,3 +63,29 @@ test.describe('marking tasks complete', () => {
     await expect(listItem.locator('span')).toHaveClass(/line-through/)
   })
 })
+
+test.describe('deleting tasks', () => {
+  test('user can delete a task and it is removed from the list', async ({ page }) => {
+    await page.goto('/')
+    await expect(
+      page.getByText(/no tasks yet/i).or(page.getByRole('list')).first()
+    ).toBeVisible({ timeout: 10000 })
+
+    const taskDescription = `E2E delete ${Date.now()}`
+    await page.getByRole('textbox', { name: /add a task/i }).fill(taskDescription)
+    await page.getByRole('button', { name: /^add$/i }).click()
+    await expect(page.getByText(taskDescription)).toBeVisible({ timeout: 5000 })
+
+    const listItem = page.getByRole('listitem').filter({ hasText: taskDescription })
+    const deleteBtn = listItem.getByRole('button', { name: /delete task/i })
+    const deletePromise = page.waitForResponse(
+      (res) => res.url().includes('/api/todos/') && res.request().method() === 'DELETE' && res.status() === 204,
+      { timeout: 10000 }
+    )
+    await deleteBtn.click()
+    await deletePromise
+
+    // Wait for list refetch and re-render; avoid depending on which GET we catch (add vs delete refetch)
+    await expect(page.getByText(taskDescription)).not.toBeVisible({ timeout: 5000 })
+  })
+})

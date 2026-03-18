@@ -111,3 +111,21 @@ export async function updateTodo(id: number, payload: { completed: boolean }): P
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : '',
   }
 }
+
+/**
+ * Deletes a todo via DELETE /api/todos/:id.
+ * Returns void on 204. Throws on non-2xx with body.message or statusText.
+ */
+export async function deleteTodo(id: number): Promise<void> {
+  const base = getTodosUrl()
+  const url = `${base}/${id}`
+  const res = await fetch(url, { method: 'DELETE' })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const message = typeof body?.message === 'string' ? body.message : res.statusText
+    throw new Error(message)
+  }
+  if (res.status !== 204) {
+    throw new Error(res.statusText || 'Unexpected response')
+  }
+}

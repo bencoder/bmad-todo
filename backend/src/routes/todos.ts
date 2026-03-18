@@ -90,6 +90,27 @@ async function todosRoutes(app: FastifyInstance) {
     }
     return reply.status(200).send(toApiTask(updated))
   })
+
+  const idParamSchema = z.object({
+    id: z.coerce.number().refine((n) => Number.isInteger(n) && n >= 1, 'id must be a positive integer'),
+  })
+
+  app.delete('/api/todos/:id', {
+    schema: {
+      params: idParamSchema,
+      response: {
+        404: notFoundResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: number }
+    const [row] = await app.db.select().from(tasks).where(eq(tasks.id, id))
+    if (!row) {
+      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Task not found' })
+    }
+    await app.db.delete(tasks).where(eq(tasks.id, id))
+    return reply.status(204).send()
+  })
 }
 
 export default todosRoutes

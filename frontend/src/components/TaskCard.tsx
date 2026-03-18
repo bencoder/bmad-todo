@@ -9,9 +9,10 @@ function formatCreatedAt(createdAt: string): string {
 export interface TaskCardProps {
   todo: Todo
   onToggleComplete?: (id: number, completed: boolean) => void
+  onDelete?: (id: number) => void
 }
 
-export function TaskCard({ todo, onToggleComplete }: TaskCardProps) {
+export function TaskCard({ todo, onToggleComplete, onDelete }: TaskCardProps) {
   const handleChange = () => {
     onToggleComplete?.(todo.id, !todo.completed)
   }
@@ -36,6 +37,16 @@ export function TaskCard({ todo, onToggleComplete }: TaskCardProps) {
       >
         {formatCreatedAt(todo.createdAt ?? '')}
       </time>
+      {onDelete && (
+        <button
+          type="button"
+          aria-label="Delete task"
+          className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded border border-gray-300 bg-transparent px-2 text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+          onClick={() => onDelete(todo.id)}
+        >
+          Delete
+        </button>
+      )}
     </li>
   )
 }
