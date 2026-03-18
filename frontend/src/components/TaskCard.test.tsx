@@ -95,6 +95,53 @@ describe('TaskCard', () => {
     expect(btn).toHaveAttribute('aria-label', 'Delete task')
   })
 
+  describe('keyboard and semantics (WCAG 2.1)', () => {
+    it('renders as listitem (li) so list semantics are correct', () => {
+      const { container } = render(<TaskCard todo={baseTodo} />)
+      const li = container.querySelector('li')
+      expect(li).toBeInTheDocument()
+      expect(li?.tagName).toBe('LI')
+    })
+
+    it('checkbox is focusable and has aria-label', () => {
+      render(<TaskCard todo={baseTodo} onToggleComplete={() => {}} />)
+      const checkbox = screen.getByRole('checkbox', { name: /mark task complete/i })
+      expect(checkbox).not.toHaveAttribute('tabIndex', '-1')
+      checkbox.focus()
+      expect(document.activeElement).toBe(checkbox)
+      expect(checkbox).toHaveAttribute('aria-label')
+    })
+
+    it('edit trigger is a button and focusable with aria-label', () => {
+      render(<TaskCard todo={baseTodo} onStartEdit={() => {}} />)
+      const editTrigger = screen.getByRole('button', { name: /edit task: review prd feedback/i })
+      expect(editTrigger).not.toHaveAttribute('tabIndex', '-1')
+      editTrigger.focus()
+      expect(document.activeElement).toBe(editTrigger)
+      expect(editTrigger).toHaveAttribute('aria-label', 'Edit task: Review PRD feedback')
+    })
+
+    it('delete button is focusable', () => {
+      render(<TaskCard todo={baseTodo} onDelete={() => {}} />)
+      const deleteBtn = screen.getByRole('button', { name: /delete task/i })
+      expect(deleteBtn).not.toHaveAttribute('tabIndex', '-1')
+      deleteBtn.focus()
+      expect(document.activeElement).toBe(deleteBtn)
+    })
+
+    it('checkbox has focus-visible outline classes for keyboard focus indicator', () => {
+      render(<TaskCard todo={baseTodo} onToggleComplete={() => {}} />)
+      const checkbox = screen.getByRole('checkbox')
+      expect(checkbox.className).toMatch(/focus-visible:outline/)
+    })
+
+    it('delete button uses focus-visible ring (not focus-only) for keyboard', () => {
+      render(<TaskCard todo={baseTodo} onDelete={() => {}} />)
+      const deleteBtn = screen.getByRole('button', { name: /delete task/i })
+      expect(deleteBtn.className).toMatch(/focus-visible:ring-2/)
+    })
+  })
+
   it('calls onDelete with todo.id when delete button is clicked', () => {
     const onDelete = vi.fn()
     render(<TaskCard todo={baseTodo} onDelete={onDelete} />)

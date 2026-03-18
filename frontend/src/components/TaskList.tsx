@@ -69,6 +69,7 @@ export function TaskList() {
     setEditError(null)
   }
 
+  // Focus management (Story 6.2): After add, focus remains in add input. After delete, focus is not moved for MVP to avoid fragile ref wiring.
   const handleAddSubmit = (trimmedDescription: string) => {
     if (trimmedDescription === '') return
     createTodo(trimmedDescription)

@@ -148,6 +148,25 @@ describe('TaskList', () => {
     expect(list.closest('.max-w-\\[560px\\]')).toBeInTheDocument()
   })
 
+  it('uses semantic list markup: ul with role="list" and li listitems', () => {
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'One', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    renderTaskList()
+    const list = screen.getByRole('list')
+    expect(list.tagName).toBe('UL')
+    expect(list).toHaveAttribute('role', 'list')
+    const items = screen.getAllByRole('listitem')
+    expect(items).toHaveLength(1)
+    expect(items[0].tagName).toBe('LI')
+  })
+
   it('calls create mutation with trimmed description on submit and clears input on success', async () => {
     const initialData: Array<{ id: number; description: string; completed: boolean; createdAt: string }> = []
     const refetch = vi.fn(() => Promise.resolve())

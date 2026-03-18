@@ -24,6 +24,28 @@ describe('AddTaskRow', () => {
     expect(input).toBeInTheDocument()
   })
 
+  it('uses form with label and submit button for semantics', () => {
+    render(<AddTaskRow />)
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    const form = input.closest('form')
+    expect(form).toBeInTheDocument()
+    expect(screen.getByLabelText(/add a task/i)).toBeInTheDocument()
+    const submitBtn = screen.getByRole('button', { name: /add/i })
+    expect(submitBtn).toHaveAttribute('type', 'submit')
+  })
+
+  it('add input and Add button are focusable by keyboard', () => {
+    render(<AddTaskRow />)
+    const input = screen.getByRole('textbox', { name: /add a task/i })
+    const button = screen.getByRole('button', { name: /add/i })
+    expect(input).not.toHaveAttribute('tabIndex', '-1')
+    expect(button).not.toHaveAttribute('tabIndex', '-1')
+    input.focus()
+    expect(document.activeElement).toBe(input)
+    button.focus()
+    expect(document.activeElement).toBe(button)
+  })
+
   it('submit does not throw when form is submitted', () => {
     render(<AddTaskRow />)
     const input = screen.getByRole('textbox', { name: /add a task/i })

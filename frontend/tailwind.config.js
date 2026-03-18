@@ -1,4 +1,5 @@
 /** @type {import('tailwindcss').Config} */
+// WCAG 2.1 AA contrast (Story 6.2): text-primary #1a1a1a on background #f5f5f5 ≥ 4.5:1; primary/focus-ring #1e40af on surface/white ≥ 3:1; focus indicator ≥ 3:1.
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {

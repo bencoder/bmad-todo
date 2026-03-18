@@ -67,7 +67,7 @@ export function TaskCard({
         checked={Boolean(todo.completed)}
         readOnly={!onToggleComplete}
         aria-label={todo.completed ? 'Mark task active' : 'Mark task complete'}
-        className="h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-[text-primary] accent-primary"
+        className="h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-[text-primary] accent-primary focus:outline-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus-ring"
         onChange={onToggleComplete ? handleChange : undefined}
       />
       {isEditing ? (
@@ -106,7 +106,7 @@ export function TaskCard({
         <button
           type="button"
           aria-label="Delete task"
-          className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded-button border border-border bg-transparent px-2 text-text-muted hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus-ring focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded-button border border-border bg-transparent px-2 text-text-muted hover:bg-surface focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2"
           onClick={() => onDelete(todo.id)}
         >
           Delete
