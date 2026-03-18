@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { useTodos } from '../hooks/useTodos'
 import { useCreateTodo } from '../hooks/useCreateTodo'
+import { useUpdateTodo } from '../hooks/useUpdateTodo'
 import { LoadingState } from './LoadingState'
 import { EmptyState } from './EmptyState'
 import { ErrorState, DEFAULT_ERROR_MESSAGE } from './ErrorState'
@@ -27,7 +28,12 @@ function getErrorMessage(error: unknown): string {
 export function TaskList() {
   const { data, isLoading, isError, error, refetch } = useTodos()
   const { mutateAsync: createTodo, isPending: isCreating, isError: isCreateError, error: createError } = useCreateTodo()
+  const { mutate: updateTodo, isPending: isUpdating } = useUpdateTodo()
   const addTaskClearRef = useRef<(() => void) | null>(null)
+
+  const handleToggleComplete = (id: number, completed: boolean) => {
+    updateTodo({ id, completed })
+  }
 
   const handleAddSubmit = (trimmedDescription: string) => {
     if (trimmedDescription === '') return
@@ -73,7 +79,11 @@ export function TaskList() {
       ) : (
         <ul role="list" className="mt-4 flex flex-col list-none gap-2">
           {data.map((todo, index) => (
-            <TaskCard key={todo.id ?? index} todo={todo} />
+            <TaskCard
+              key={todo.id ?? index}
+              todo={todo}
+              onToggleComplete={handleToggleComplete}
+            />
           ))}
         </ul>
       )}

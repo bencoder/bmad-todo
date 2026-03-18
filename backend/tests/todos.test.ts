@@ -185,3 +185,109 @@ test('POST /api/todos returns 400 for null description', async () => {
   assert.strictEqual(listRes.json().length, 0)
   await app.close()
 })
+
+test('PATCH /api/todos/:id with completed true returns 200 and updated task', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task to complete' },
+  })
+  assert.strictEqual(createRes.statusCode, 201)
+  const created = createRes.json()
+  const id = created.id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { completed: true },
+  })
+  assert.strictEqual(res.statusCode, 200)
+  const body = res.json()
+  assert.strictEqual(body.id, id)
+  assert.strictEqual(body.description, 'Task to complete')
+  assert.strictEqual(body.completed, true)
+  assert.strictEqual(typeof body.createdAt, 'string')
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 1)
+  assert.strictEqual(list[0].completed, true)
+  await app.close()
+})
+
+test('PATCH /api/todos/:id with completed false toggles back', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  await app.db.insert(tasks).values({ description: 'Done task', completed: true })
+  const listRes = await app.inject({ method: 'GET', url: '/api/todos' })
+  const list = listRes.json()
+  assert.strictEqual(list.length, 1)
+  const id = list[0].id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { completed: false },
+  })
+  assert.strictEqual(res.statusCode, 200)
+  const body = res.json()
+  assert.strictEqual(body.completed, false)
+  const listRes2 = await app.inject({ method: 'GET', url: '/api/todos' })
+  assert.strictEqual(listRes2.json()[0].completed, false)
+  await app.close()
+})
+
+test('PATCH /api/todos/:id returns 404 for non-existent id', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const res = await app.inject({
+    method: 'PATCH',
+    url: '/api/todos/99999',
+    payload: { completed: true },
+  })
+  assert.strictEqual(res.statusCode, 404)
+  const body = res.json()
+  assert.strictEqual(body.code, 'NOT_FOUND')
+  assert.strictEqual(body.message, 'Task not found')
+  await app.close()
+})
+
+test('PATCH /api/todos/:id returns 400 for invalid body', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task' },
+  })
+  const id = createRes.json().id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: {},
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  assert.strictEqual(typeof body.message, 'string')
+  await app.close()
+})
+
+test('PATCH /api/todos/:id returns 400 for non-boolean completed', async () => {
+  const app = await buildApp()
+  await app.db.delete(tasks)
+  const createRes = await app.inject({
+    method: 'POST',
+    url: '/api/todos',
+    payload: { description: 'Task' },
+  })
+  const id = createRes.json().id
+  const res = await app.inject({
+    method: 'PATCH',
+    url: `/api/todos/${id}`,
+    payload: { completed: 'yes' },
+  })
+  assert.strictEqual(res.statusCode, 400)
+  const body = res.json()
+  assert.strictEqual(body.code, 'VALIDATION_ERROR')
+  await app.close()
+})

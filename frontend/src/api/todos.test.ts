@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
-import { fetchTodos, createTodo } from './todos'
+import { fetchTodos, createTodo, updateTodo } from './todos'
 
 describe('fetchTodos', () => {
   beforeEach(() => {
@@ -112,5 +112,56 @@ describe('createTodo', () => {
       json: () => Promise.resolve({}),
     } as Response)
     await expect(createTodo('x')).rejects.toThrow('Internal Server Error')
+  })
+})
+
+describe('updateTodo', () => {
+  beforeEach(() => {
+    vi.stubGlobal('fetch', vi.fn())
+  })
+  afterEach(() => {
+    vi.unstubAllGlobals()
+  })
+
+  it('PATCHes { completed } to /api/todos/:id and returns updated task', async () => {
+    const updated = {
+      id: 1,
+      description: 'Task',
+      completed: true,
+      createdAt: '2026-03-17T12:00:00.000Z',
+    }
+    vi.mocked(fetch).mockResolvedValue({
+      ok: true,
+      status: 200,
+      json: () => Promise.resolve(updated),
+    } as Response)
+    const result = await updateTodo(1, { completed: true })
+    expect(result).toEqual(updated)
+    expect(fetch).toHaveBeenCalledWith(
+      expect.stringMatching(/\/api\/todos\/1$/),
+      expect.objectContaining({
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: true }),
+      }),
+    )
+  })
+
+  it('throws on non-2xx with body.message', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      status: 404,
+      json: () => Promise.resolve({ code: 'NOT_FOUND', message: 'Task not found' }),
+    } as Response)
+    await expect(updateTodo(99999, { completed: true })).rejects.toThrow('Task not found')
+  })
+
+  it('throws with statusText when response body has no message', async () => {
+    vi.mocked(fetch).mockResolvedValue({
+      ok: false,
+      statusText: 'Internal Server Error',
+      json: () => Promise.resolve({}),
+    } as Response)
+    await expect(updateTodo(1, { completed: false })).rejects.toThrow('Internal Server Error')
   })
 })

@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest'
-import { render, screen } from '@testing-library/react'
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, fireEvent } from '@testing-library/react'
 import { TaskCard } from './TaskCard'
 import type { Todo } from '../types/todo'
 
@@ -29,14 +29,14 @@ describe('TaskCard', () => {
 
   it('shows unchecked checkbox when todo.completed is false', () => {
     render(<TaskCard todo={baseTodo} />)
-    const checkbox = screen.getByRole('checkbox', { name: /not completed/i })
+    const checkbox = screen.getByRole('checkbox', { name: /mark task complete/i })
     expect(checkbox).toBeInTheDocument()
     expect(checkbox).not.toBeChecked()
   })
 
   it('shows checked checkbox when todo.completed is true', () => {
     render(<TaskCard todo={{ ...baseTodo, completed: true }} />)
-    const checkbox = screen.getByRole('checkbox', { name: /completed/i })
+    const checkbox = screen.getByRole('checkbox', { name: /mark task active/i })
     expect(checkbox).toBeInTheDocument()
     expect(checkbox).toBeChecked()
   })
@@ -53,9 +53,33 @@ describe('TaskCard', () => {
     expect(card).toHaveClass('py-3.5')
   })
 
-  it('checkbox is read-only', () => {
+  it('checkbox is read-only when onToggleComplete is not provided', () => {
     render(<TaskCard todo={baseTodo} />)
     const checkbox = screen.getByRole('checkbox')
     expect(checkbox).toHaveAttribute('readOnly')
+  })
+
+  it('calls onToggleComplete with id and toggled completed when checkbox is changed', () => {
+    const onToggleComplete = vi.fn()
+    render(<TaskCard todo={baseTodo} onToggleComplete={onToggleComplete} />)
+    const checkbox = screen.getByRole('checkbox', { name: /mark task complete/i })
+    expect(checkbox).not.toBeChecked()
+    fireEvent.click(checkbox)
+    expect(onToggleComplete).toHaveBeenCalledTimes(1)
+    expect(onToggleComplete).toHaveBeenCalledWith(1, true)
+  })
+
+  it('calls onToggleComplete with completed false when unchecking completed task', () => {
+    const onToggleComplete = vi.fn()
+    render(<TaskCard todo={{ ...baseTodo, completed: true }} onToggleComplete={onToggleComplete} />)
+    const checkbox = screen.getByRole('checkbox', { name: /mark task active/i })
+    fireEvent.click(checkbox)
+    expect(onToggleComplete).toHaveBeenCalledWith(1, false)
+  })
+
+  it('checkbox is not read-only when onToggleComplete is provided', () => {
+    render(<TaskCard todo={baseTodo} onToggleComplete={() => {}} />)
+    const checkbox = screen.getByRole('checkbox')
+    expect(checkbox).not.toHaveAttribute('readOnly')
   })
 })

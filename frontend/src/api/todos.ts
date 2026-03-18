@@ -71,3 +71,43 @@ export async function createTodo(description: string): Promise<Todo> {
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : '',
   }
 }
+
+/**
+ * Updates a todo's completed state via PATCH /api/todos/:id.
+ * Body: { completed }. Returns updated task (camelCase Todo shape).
+ * Throws on non-2xx with body.message or statusText.
+ */
+export async function updateTodo(id: number, payload: { completed: boolean }): Promise<Todo> {
+  const base = getTodosUrl()
+  const url = `${base}/${id}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ completed: payload.completed }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    const message = typeof body?.message === 'string' ? body.message : res.statusText
+    throw new Error(message)
+  }
+  let data: unknown
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error('Invalid response: not JSON')
+  }
+  if (data == null || typeof data !== 'object' || !('id' in data) || !('description' in data)) {
+    throw new Error('Invalid response: expected task object')
+  }
+  const obj = data as Record<string, unknown>
+  const taskId = Number(obj.id)
+  if (Number.isNaN(taskId) || taskId < 0) {
+    throw new Error('Invalid response: id must be a non-negative number')
+  }
+  return {
+    id: taskId,
+    description: String(obj.description),
+    completed: Boolean(obj.completed),
+    createdAt: typeof obj.createdAt === 'string' ? obj.createdAt : '',
+  }
+}

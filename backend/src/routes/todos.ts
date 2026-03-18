@@ -1,13 +1,17 @@
 import type { FastifyInstance } from 'fastify'
-import type { z } from 'zod'
+import { z } from 'zod'
+import { eq } from 'drizzle-orm'
 import { tasks } from '../db/schema.js'
 import {
   createTaskRequestBodySchema,
+  notFoundResponseSchema,
   taskListResponseSchema,
   taskResponseSchema,
+  updateTaskRequestBodySchema,
 } from '../schemas/todos.schema.js'
 
 type CreateTaskBody = z.infer<typeof createTaskRequestBodySchema>
+type UpdateTaskBody = z.infer<typeof updateTaskRequestBodySchema>
 
 function toApiTask(row: { id: number; description: string; completed: boolean; created_at: Date | null; user_id: number | null }) {
   return {
@@ -58,6 +62,33 @@ async function todosRoutes(app: FastifyInstance) {
       internal.statusCode = 500
       throw internal
     }
+  })
+
+  app.patch('/api/todos/:id', {
+    schema: {
+      params: z.object({ id: z.coerce.number().refine((n) => Number.isInteger(n) && n >= 1, 'id must be a positive integer') }),
+      body: updateTaskRequestBodySchema,
+      response: {
+        200: taskResponseSchema,
+        404: notFoundResponseSchema,
+      },
+    },
+  }, async (request, reply) => {
+    const { id } = request.params as { id: number }
+    const body = request.body as UpdateTaskBody
+    const { completed } = body
+    const [row] = await app.db.select().from(tasks).where(eq(tasks.id, id))
+    if (!row) {
+      return reply.status(404).send({ code: 'NOT_FOUND', message: 'Task not found' })
+    }
+    const [updated] = await app.db.update(tasks).set({ completed }).where(eq(tasks.id, id)).returning()
+    if (!updated) {
+      const err = new Error('Update did not return row') as Error & { code?: string; statusCode?: number }
+      err.code = 'INTERNAL_ERROR'
+      err.statusCode = 500
+      throw err
+    }
+    return reply.status(200).send(toApiTask(updated))
   })
 }
 

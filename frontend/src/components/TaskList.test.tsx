@@ -4,9 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { TaskList } from './TaskList'
 import * as useTodosModule from '../hooks/useTodos'
 import * as useCreateTodoModule from '../hooks/useCreateTodo'
+import * as useUpdateTodoModule from '../hooks/useUpdateTodo'
 
 vi.mock('../hooks/useTodos')
 vi.mock('../hooks/useCreateTodo')
+vi.mock('../hooks/useUpdateTodo')
 
 function renderTaskList() {
   const queryClient = new QueryClient({
@@ -29,6 +31,13 @@ describe('TaskList', () => {
       refetch: vi.fn(() => Promise.resolve()),
     })
     vi.mocked(useCreateTodoModule.useCreateTodo).mockReturnValue({
+      mutate: vi.fn(),
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
       mutate: vi.fn(),
       mutateAsync: vi.fn().mockResolvedValue(undefined),
       isPending: false,
@@ -195,6 +204,57 @@ describe('TaskList', () => {
       expect(screen.getByRole('alert')).toHaveTextContent(/couldn't add task/i)
     })
     expect(input).toHaveValue('My task')
+  })
+
+  it('calls update mutation with id and completed when checkbox is toggled', () => {
+    const updateMutate = vi.fn()
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 1, description: 'First task', completed: false, createdAt: '2026-03-17T10:00:00.000Z' },
+        { id: 2, description: 'Second task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
+      mutate: updateMutate,
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    const firstCheckbox = screen.getByRole('checkbox', { name: /mark task complete/i })
+    expect(firstCheckbox).not.toBeChecked()
+    fireEvent.click(firstCheckbox)
+    expect(updateMutate).toHaveBeenCalledTimes(1)
+    expect(updateMutate).toHaveBeenCalledWith({ id: 1, completed: true })
+  })
+
+  it('toggle on completed task calls update with completed false', () => {
+    const updateMutate = vi.fn()
+    vi.mocked(useTodosModule.useTodos).mockReturnValue({
+      data: [
+        { id: 2, description: 'Done task', completed: true, createdAt: '2026-03-16T12:00:00.000Z' },
+      ],
+      isLoading: false,
+      isError: false,
+      error: null,
+      refetch: vi.fn(() => Promise.resolve()),
+    })
+    vi.mocked(useUpdateTodoModule.useUpdateTodo).mockReturnValue({
+      mutate: updateMutate,
+      mutateAsync: vi.fn().mockResolvedValue(undefined),
+      isPending: false,
+      isError: false,
+      error: null,
+    })
+    renderTaskList()
+    const checkbox = screen.getByRole('checkbox', { name: /mark task active/i })
+    fireEvent.click(checkbox)
+    expect(updateMutate).toHaveBeenCalledWith({ id: 2, completed: false })
   })
 
   it('does not call create when submitted description is empty after trim', () => {

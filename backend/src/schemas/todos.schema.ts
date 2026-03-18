@@ -5,6 +5,11 @@ export const createTaskRequestBodySchema = z.object({
   description: z.string().trim().min(1),
 })
 
+/** PATCH /api/todos/:id body: completed flag. */
+export const updateTaskRequestBodySchema = z.object({
+  completed: z.boolean(),
+})
+
 export const taskResponseSchema = z.object({
   id: z.number(),
   description: z.string(),
@@ -13,3 +18,9 @@ export const taskResponseSchema = z.object({
 })
 
 export const taskListResponseSchema = z.array(taskResponseSchema)
+
+/** 404 error body. */
+export const notFoundResponseSchema = z.object({
+  code: z.literal('NOT_FOUND'),
+  message: z.string(),
+})
