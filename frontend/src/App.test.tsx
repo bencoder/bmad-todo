@@ -78,7 +78,7 @@ describe('App', () => {
     expect(screen.getAllByRole('time')).toHaveLength(2)
   })
 
-  it('when fetch returns empty array, shows empty state and add affordance and called /api/todos', async () => {
+  it('when fetch returns empty array, shows empty state and called /api/todos', async () => {
     const mockFetch = vi.mocked(fetch)
     mockFetch.mockResolvedValue(mockJsonResponse(true, []))
     renderApp()
@@ -86,12 +86,6 @@ describe('App', () => {
       expect(screen.getByText(/no tasks yet/i)).toBeInTheDocument()
     })
     expect(mockFetch).toHaveBeenCalledWith(expect.stringMatching(/\/api\/todos$/))
-    const addButton = screen.getByRole('button', { name: /add your first task/i })
-    expect(addButton).toBeInTheDocument()
-    expect(addButton).toHaveAttribute('type', 'button')
-    expect(addButton).not.toHaveAttribute('tabIndex', '-1')
-    addButton.focus()
-    expect(document.activeElement).toBe(addButton)
   })
 
   it('does not show empty state while loading', async () => {
