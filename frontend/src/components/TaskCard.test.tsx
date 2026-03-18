@@ -24,7 +24,7 @@ describe('TaskCard', () => {
     render(<TaskCard todo={{ ...baseTodo, completed: true }} />)
     const description = screen.getByRole('button', { name: /edit task: review prd feedback/i })
     expect(description).toHaveClass('line-through')
-    expect(description).toHaveClass('text-gray-500')
+    expect(description).toHaveClass('text-text-muted')
   })
 
   it('shows unchecked checkbox when todo.completed is false', () => {
@@ -41,14 +41,14 @@ describe('TaskCard', () => {
     expect(checkbox).toBeChecked()
   })
 
-  it('uses card layout with Direction C classes (padding, rounded, border)', () => {
+  it('uses card layout with Direction C token-based classes (padding, rounded, border)', () => {
     const { container } = render(<TaskCard todo={baseTodo} />)
     const card = container.querySelector('li')
     expect(card).toBeInTheDocument()
-    expect(card).toHaveClass('rounded-lg')
+    expect(card).toHaveClass('rounded-card')
     expect(card).toHaveClass('border')
-    expect(card).toHaveClass('border-[#eee]')
-    expect(card).toHaveClass('bg-[#fafafa]')
+    expect(card).toHaveClass('border-border')
+    expect(card).toHaveClass('bg-surface')
     expect(card).toHaveClass('px-4')
     expect(card).toHaveClass('py-3.5')
   })

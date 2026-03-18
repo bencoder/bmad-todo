@@ -47,6 +47,6 @@ describe('ErrorState', () => {
     const section = document.querySelector('section')
     expect(section).toBeInTheDocument()
     expect(section).toHaveClass('min-h-[12rem]')
-    expect(section).toHaveClass('p-8')
+    expect(section).toHaveClass('p-container-padding')
   })
 })

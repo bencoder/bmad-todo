@@ -37,7 +37,7 @@ export function AddTaskRow({ onSubmit, clearInputRef, error, disabled }: AddTask
 
   return (
     <div className="flex flex-col gap-1">
-      <form onSubmit={handleSubmit} className="flex gap-2 items-center">
+      <form onSubmit={handleSubmit} className="flex items-center gap-add-row-gap">
         <label htmlFor="add-task-input" className="sr-only">
           Add a task
         </label>
@@ -50,20 +50,20 @@ export function AddTaskRow({ onSubmit, clearInputRef, error, disabled }: AddTask
           aria-invalid={error ? 'true' : undefined}
           aria-describedby={error ? 'add-task-error' : undefined}
           disabled={disabled}
-          className="flex-1 rounded border border-gray-300 px-3 py-2 text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="min-w-0 flex-1 rounded-input border border-border bg-surface px-[18px] py-3.5 text-body text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
         />
         <button
           type="submit"
           disabled={disabled}
           aria-label="Add"
           aria-busy={disabled}
-          className="px-4 py-2 bg-blue-600 text-white rounded focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="flex-shrink-0 rounded-button bg-primary px-[22px] py-3.5 text-body font-medium text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           Add
         </button>
       </form>
       {error ? (
-        <p id="add-task-error" role="alert" className="text-sm text-red-600">
+        <p id="add-task-error" role="alert" className="text-metadata text-error">
           {error}
         </p>
       ) : null}

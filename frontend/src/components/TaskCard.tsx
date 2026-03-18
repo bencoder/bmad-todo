@@ -8,7 +8,7 @@ function formatCreatedAt(createdAt: string): string {
 }
 
 const inputClassName =
-  'flex-1 min-w-0 rounded border border-gray-300 px-3 py-2 text-base focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600'
+  'flex-1 min-w-0 rounded-input border border-border bg-surface px-[18px] py-3.5 text-body text-text-primary placeholder:text-text-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2'
 
 export interface TaskCardProps {
   todo: Todo
@@ -61,13 +61,13 @@ export function TaskCard({
   }
 
   return (
-    <li className="flex items-center gap-3 rounded-lg border border-[#eee] bg-[#fafafa] px-4 py-3.5">
+    <li className="flex items-center gap-3 rounded-card border border-border bg-surface px-4 py-3.5">
       <input
         type="checkbox"
         checked={Boolean(todo.completed)}
         readOnly={!onToggleComplete}
         aria-label={todo.completed ? 'Mark task active' : 'Mark task complete'}
-        className="h-5 w-5 flex-shrink-0 rounded border-2 border-gray-700"
+        className="h-[22px] w-[22px] flex-shrink-0 rounded-[6px] border-2 border-[text-primary] accent-primary"
         onChange={onToggleComplete ? handleChange : undefined}
       />
       {isEditing ? (
@@ -84,7 +84,7 @@ export function TaskCard({
             onKeyDown={handleKeyDown}
           />
           {editError ? (
-            <p id={`task-edit-error-${todo.id}`} role="alert" className="text-sm text-red-600">
+            <p id={`task-edit-error-${todo.id}`} role="alert" className="text-metadata text-error">
               {editError}
             </p>
           ) : null}
@@ -94,19 +94,19 @@ export function TaskCard({
           type="button"
           onClick={() => onStartEdit?.(todo.id)}
           aria-label={`Edit task: ${todo.description ?? ''}`}
-          className={`flex-1 text-left text-base outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-blue-600 rounded ${todo.completed ? 'font-medium text-gray-500 line-through' : 'text-gray-900'}`}
+          className={`flex-1 text-left text-body outline-none focus-visible:ring-2 focus-visible:ring-focus-ring focus-visible:ring-offset-2 rounded-input ${todo.completed ? 'font-medium text-text-muted line-through' : 'text-text-primary'}`}
         >
           {todo.description ?? ''}
         </button>
       )}
-      <time dateTime={todo.createdAt ?? ''} className="text-sm text-gray-500 flex-shrink-0">
+      <time dateTime={todo.createdAt ?? ''} className="text-metadata text-text-secondary flex-shrink-0">
         {formatCreatedAt(todo.createdAt ?? '')}
       </time>
       {onDelete && (
         <button
           type="button"
           aria-label="Delete task"
-          className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded border border-gray-300 bg-transparent px-2 text-gray-600 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:ring-offset-1"
+          className="min-h-[44px] min-w-[44px] flex-shrink-0 rounded-button border border-border bg-transparent px-2 text-text-muted hover:bg-surface focus:outline-none focus:ring-2 focus:ring-focus-ring focus:ring-offset-1"
           onClick={() => onDelete(todo.id)}
         >
           Delete

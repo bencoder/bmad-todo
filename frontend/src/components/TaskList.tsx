@@ -99,7 +99,7 @@ export function TaskList() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-[560px] p-6">
+    <div className="mx-auto w-full max-w-[560px] bg-background p-container-padding">
       <AddTaskRow
         onSubmit={handleAddSubmit}
         clearInputRef={addTaskClearRef}
@@ -107,11 +107,11 @@ export function TaskList() {
         disabled={isCreating}
       />
       {!data || !Array.isArray(data) || data.length === 0 ? (
-        <div className="mt-4">
+        <div className="mt-section-bottom">
           <EmptyState />
         </div>
       ) : (
-        <ul role="list" className="mt-4 flex flex-col list-none gap-2">
+        <ul role="list" className="mt-section-bottom flex flex-col list-none gap-list-gap">
           {data.map((todo, index) => (
             <TaskCard
               key={todo.id ?? index}
